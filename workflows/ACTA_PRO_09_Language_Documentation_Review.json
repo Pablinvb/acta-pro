@@ -1,0 +1,120 @@
+{
+  "name": "ACTA PRO | 09 - Language & Documentation Review",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WORKFLOW 09 — Language & Documentation Review\n\nRevisa la redacción generada (agreements, situations_discussed, etc.) antes de construir el acta. Clasifica cada fragmento como GREEN / YELLOW / RED y sugiere una redacción alternativa. La IA SOLO sugiere; el docente debe aprobar los cambios (nunca se modifica el contenido final en silencio).",
+        "height": 220,
+        "width": 520,
+        "color": 5
+      },
+      "id": "qcrrn5bod29jfr1g",
+      "name": "Nota - xx53",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "meeting_id"
+            },
+            {
+              "name": "draft_fields"
+            }
+          ]
+        }
+      },
+      "id": "qd72qaz4rebq30e5",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: 'gpt-4.1-mini',\n  temperature: 0,\n  response_format: { type: 'json_object' },\n  messages: [ { role: 'system', content: `Revisas fragmentos de texto de actas escolares para detectar juicios de valor, acusaciones, generalizaciones, lenguaje emocional o discriminatorio, afirmaciones sin evidencia, contradicciones, informacion sensible innecesaria y frases ambiguas. Para cada fragmento recibido responde UNICAMENTE un arreglo JSON de objetos con: fragment, level (GREEN|YELLOW|RED), reason, suggested_text. Nunca reescribas de forma definitiva: suggested_text es solo una sugerencia que el docente debe aprobar.` },\n    { role: 'user', content: JSON.stringify($json.draft_fields) } ]\n}) }}",
+        "options": {}
+      },
+      "id": "445tps3hl7fkxjud",
+      "name": "CONFIGURAR - Revisar lenguaje (LLM)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        260,
+        180
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "CONFIGURAR - OpenAI API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = items[0].json.choices?.[0]?.message?.content || '[]';\nlet parsed;\ntry { parsed = JSON.parse(raw); } catch (e) { parsed = []; }\nreturn [{ json: { review: parsed } }];"
+      },
+      "id": "up0utrbher4ojycz",
+      "name": "Parsear resultado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        520,
+        180
+      ]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - Revisar lenguaje (LLM)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIGURAR - Revisar lenguaje (LLM)": {
+      "main": [
+        [
+          {
+            "node": "Parsear resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "acta-pro-mvp"
+  },
+  "id": "bttr93t473omj3wokflg",
+  "tags": [
+    {
+      "name": "ACTA PRO"
+    }
+  ]
+}
