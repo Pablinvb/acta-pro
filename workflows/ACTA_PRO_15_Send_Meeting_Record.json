@@ -1,0 +1,220 @@
+{
+  "name": "ACTA PRO | 15 - Send Meeting Record",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WORKFLOW 15 — Send Meeting Record\n\nTras firmar y almacenar el acta, obtiene el correo validado del representante (desde Runachay / datos de la reunión) y envía el acta adjunta por Gmail. Registra fecha de envío, destinatario, message_id y marca representative_copy_sent = true.\n\nCONFIGURAR: credencial de Gmail OAuth2.",
+        "height": 240,
+        "width": 520,
+        "color": 5
+      },
+      "id": "ar0hh06yjjmpbtbk",
+      "name": "Nota - zi8y",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "meeting_id"
+            },
+            {
+              "name": "student_name"
+            },
+            {
+              "name": "meeting_date"
+            },
+            {
+              "name": "representative_name"
+            },
+            {
+              "name": "representative_email"
+            },
+            {
+              "name": "teacher_name"
+            },
+            {
+              "name": "institution_name"
+            },
+            {
+              "name": "final_document_binary"
+            }
+          ]
+        }
+      },
+      "id": "kb1p46dadx4fvl5g",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.representative_email }}",
+              "rightValue": "^[\\\\w.+-]+@[\\\\w-]+\\\\.[a-zA-Z]{2,}$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "p2hye3ifvac6wcuh",
+      "name": "IF Correo válido",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        260,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.representative_email }}",
+        "subject": "=ACTA PRO | Acta de reunión - {{ $json.student_name }} - {{ $json.meeting_date }}",
+        "message": "=Estimado/a {{ $json.representative_name }},<br><br>Adjuntamos una copia del acta correspondiente a la reunión realizada el {{ $json.meeting_date }} relacionada con {{ $json.student_name }}.<br><br>Este documento constituye el respaldo de los temas tratados, acuerdos y compromisos establecidos durante la reunión.<br><br>Atentamente,<br>{{ $json.teacher_name }}<br>{{ $json.institution_name }}",
+        "options": {
+          "attachmentsUi": {}
+        }
+      },
+      "id": "bo33jzi70l6w7kn9",
+      "name": "CONFIGURAR - Gmail: enviar acta",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        520,
+        90.0
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": null,
+          "name": "CONFIGURAR - Gmail OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const send = items[0].json;\nreturn [{ json: {\n  meeting_id: $('Execute Workflow Trigger').item.json.meeting_id,\n  sent_at: new Date().toISOString(),\n  recipient: $('Execute Workflow Trigger').item.json.representative_email,\n  message_id: send.id || null,\n  representative_copy_sent: true,\n}}];"
+      },
+      "id": "s8uadsbzkwdl2dvp",
+      "name": "Registrar envío",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        780,
+        90.0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "lh0pl1qwaz0h509l",
+      "name": "CONFIGURAR - Guardar registro de envío (Postgres/Sheets)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        90.0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "w5t037wximb3mqbv",
+      "name": "Marcar correo inválido (revisión manual)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        520,
+        270.0
+      ],
+      "notes": "Correo de representante no validado por Runachay: requiere verificación manual antes de reenviar."
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "IF Correo válido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Correo válido": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - Gmail: enviar acta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar correo inválido (revisión manual)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIGURAR - Gmail: enviar acta": {
+      "main": [
+        [
+          {
+            "node": "Registrar envío",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar envío": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - Guardar registro de envío (Postgres/Sheets)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "acta-pro-mvp"
+  },
+  "id": "3o78a5ra3ui7u5ymnob3",
+  "tags": [
+    {
+      "name": "ACTA PRO"
+    }
+  ]
+}
