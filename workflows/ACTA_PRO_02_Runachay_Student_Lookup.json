@@ -1,0 +1,209 @@
+{
+  "name": "ACTA PRO | 02 - Runachay Student Lookup",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WORKFLOW 02 — Runachay Student Lookup\n\nRecibe student_name, representative_name y meeting_id (via Execute Workflow Trigger) y consulta la API de Runachay (placeholder HTTP Request, NO se inventan endpoints reales).\n\nVariables a definir en n8n (Environment / Credentials):\nRUNACHAY_API_URL, RUNACHAY_API_KEY, RUNACHAY_STUDENT_ENDPOINT, RUNACHAY_REPRESENTATIVE_ENDPOINT.\n\nSi Runachay no responde, el flujo continúa marcando data_status = manual_verification_required (nunca se detiene el flujo completo).",
+        "height": 280,
+        "width": 560,
+        "color": 5
+      },
+      "id": "ofdjofasbcpi9dqv",
+      "name": "Nota - 5waq",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "student_name"
+            },
+            {
+              "name": "representative_name"
+            },
+            {
+              "name": "meeting_id"
+            }
+          ]
+        }
+      },
+      "id": "sxf0wa4rk0ts03qq",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.RUNACHAY_API_URL }}{{ $env.RUNACHAY_STUDENT_ENDPOINT }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "name",
+              "value": "={{ $json.student_name }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 8000
+        },
+        "onError": "continueRegularOutput"
+      },
+      "id": "l90y5ai73y1wubiy",
+      "name": "CONFIGURAR - Runachay GET Estudiante",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        260,
+        90.0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "CONFIGURAR - Runachay API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.RUNACHAY_API_URL }}{{ $env.RUNACHAY_REPRESENTATIVE_ENDPOINT }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "name",
+              "value": "={{ $('Execute Workflow Trigger').item.json.representative_name }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 8000
+        },
+        "onError": "continueRegularOutput"
+      },
+      "id": "sguw25tsys6h6w85",
+      "name": "CONFIGURAR - Runachay GET Representante",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        260,
+        270.0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "CONFIGURAR - Runachay API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition"
+      },
+      "id": "zkwdj4s92rkl7kdb",
+      "name": "Merge",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        520,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const trigger = $('Execute Workflow Trigger').item.json;\nconst student = items[0] && items[0].json && items[0].json.error ? null : (items[0] ? items[0].json : null);\nconst rep = items[0] && items[0].json ? items[0].json.representative || null : null;\nconst ok = !!(student && !student.error);\nreturn [{ json: {\n  meeting_id: trigger.meeting_id,\n  student: student,\n  representative: rep,\n  data_status: ok ? 'ok' : 'manual_verification_required',\n}}];"
+      },
+      "id": "hiue5yz5gnab6rq8",
+      "name": "Consolidar / marcar data_status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        780,
+        180
+      ],
+      "notes": "Ajustar el mapeo exacto de campos cuando se conozca el esquema real de la respuesta de Runachay."
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - Runachay GET Estudiante",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "CONFIGURAR - Runachay GET Representante",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIGURAR - Runachay GET Estudiante": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIGURAR - Runachay GET Representante": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Consolidar / marcar data_status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "acta-pro-mvp"
+  },
+  "id": "avgbth2ullsrwoa04aor",
+  "tags": [
+    {
+      "name": "ACTA PRO"
+    }
+  ]
+}
