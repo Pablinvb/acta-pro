@@ -1,0 +1,86 @@
+{
+  "name": "ACTA PRO | 10 - Generate Meeting Minutes",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WORKFLOW 10 — Generate Meeting Minutes\n\nToma los datos de la reunión + el análisis de IA (workflow 08) + la revisión de lenguaje (workflow 09) y arma el borrador del acta en HTML con las 13 secciones requeridas. Lenguaje objetivo, profesional, institucional y neutral. No elimina información relevante ni agrega hechos inexistentes.",
+        "height": 220,
+        "width": 520,
+        "color": 5
+      },
+      "id": "buqmozjrhs0ke7kd",
+      "name": "Nota - vjnl",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "meeting_data"
+            },
+            {
+              "name": "ai_analysis"
+            },
+            {
+              "name": "language_review"
+            }
+          ]
+        }
+      },
+      "id": "bpx12osof6pscxqq",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const m = $json.meeting_data || {};\nconst a = $json.ai_analysis || {};\nconst list = (arr) => (arr && arr.length) ? '<ul>' + arr.map(x => `<li>${x}</li>`).join('') + '</ul>' : '<p>Sin informacion registrada.</p>';\nconst html = `\n<h1>ACTA DE REUNIÓN CON REPRESENTANTE</h1>\n<h2>1. Datos generales</h2>\n<p>Estudiante: ${m.student_name || ''} | Curso: ${m.course || ''}</p>\n<p>Representante: ${m.representative_name || ''}</p>\n<p>Docente: ${m.teacher_name || ''}</p>\n<p>Fecha: ${m.date || ''} | Hora: ${m.start_time || ''}</p>\n<h2>2. Motivo de la reunión</h2><p>${a.meeting_reason || ''}</p>\n<h2>3. Antecedentes relevantes</h2>${list(a.situations_discussed)}\n<h2>4. Temas tratados</h2>${list(a.topics)}\n<h2>5. Intervenciones relevantes</h2>${list(a.student_interventions)}\n<h2>6. Situaciones analizadas</h2>${list(a.situations_discussed)}\n<h2>7. Acuerdos</h2>${list(a.agreements)}\n<h2>8. Compromisos</h2>${list(a.commitments)}\n<h2>9. Responsables</h2>${list(a.responsible_people)}\n<h2>10. Evidencias mencionadas</h2>${list(a.evidence_mentions)}\n<h2>11. Fecha o acciones de seguimiento</h2><p>${a.follow_up_date || 'No definida'}</p>${list(a.follow_up_actions)}\n<h2>12. Observaciones</h2><p>${a.requires_teacher_review ? 'Requiere revisión docente antes de aprobar.' : ''}</p>\n<h2>13. Firmas</h2><p>Pendiente de firma digital.</p>\n`;\nreturn [{ json: { meeting_id: m.meeting_id, draft_html: html, status: 'draft', ai_analysis: a } }];"
+      },
+      "id": "2ai7insfrt92pmyp",
+      "name": "Construir borrador HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        260,
+        180
+      ]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Construir borrador HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "acta-pro-mvp"
+  },
+  "id": "ys2xjdnxbepfjxirz9i9",
+  "tags": [
+    {
+      "name": "ACTA PRO"
+    }
+  ]
+}
