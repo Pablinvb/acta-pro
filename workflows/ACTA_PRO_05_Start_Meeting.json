@@ -1,0 +1,188 @@
+{
+  "name": "ACTA PRO | 05 - Start Meeting",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WORKFLOW 05 — Start Meeting\n\nWebhook invocado por la app ACTA PRO al iniciar la reunión. Recibe meeting_id, teacher_id, student_id y participantes presentes. Valida el payload y cambia el estado de la reunión a in_progress.\n\nCONFIGURAR: URL pública del webhook en la app frontend; nodo de base de datos (Postgres) para actualizar el estado (placeholder incluido).",
+        "height": 240,
+        "width": 520,
+        "color": 5
+      },
+      "id": "aaplt9xya18he7pt",
+      "name": "Nota - k8ks",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "acta-pro/start-meeting",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "6e4lr3n7tn7as700",
+      "name": "Webhook /start-meeting",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const b = items[0].json.body || items[0].json;\nconst required = ['meeting_id', 'teacher_id', 'student_id', 'participants'];\nconst missing = required.filter(k => !b[k]);\nif (missing.length) {\n  return [{ json: { valid: false, missing } }];\n}\nreturn [{ json: { valid: true, ...b, status: 'in_progress', started_at: new Date().toISOString() } }];"
+      },
+      "id": "5rkocfpr4b1v8fec",
+      "name": "Validar payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        260,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "osmqmeye5hhkwpbc",
+      "name": "IF Válido",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        520,
+        180
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "nuc62b9mzjz0lqig",
+      "name": "CONFIGURAR - Actualizar estado (Postgres/Sheets)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        780,
+        90.0
+      ],
+      "notes": "Placeholder: UPDATE meetings SET status='in_progress' WHERE meeting_id=... (usar nodo Postgres; fallback Google Sheets si no hay Postgres configurado)."
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'in_progress', meeting_id: $json.meeting_id } }}"
+      },
+      "id": "qui1aw7umjbbgxx8",
+      "name": "Responder OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        90.0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 400,
+        "responseBody": "={{ { error: 'payload_invalido', missing: $json.missing } }}"
+      },
+      "id": "wdtl81zsdq33swct",
+      "name": "Responder Error 400",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        780,
+        270.0
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook /start-meeting": {
+      "main": [
+        [
+          {
+            "node": "Validar payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar payload": {
+      "main": [
+        [
+          {
+            "node": "IF Válido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Válido": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - Actualizar estado (Postgres/Sheets)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder Error 400",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIGURAR - Actualizar estado (Postgres/Sheets)": {
+      "main": [
+        [
+          {
+            "node": "Responder OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "acta-pro-mvp"
+  },
+  "id": "gf3219bxv8v51yzyild5",
+  "tags": [
+    {
+      "name": "ACTA PRO"
+    }
+  ]
+}
