@@ -1,0 +1,236 @@
+{
+  "name": "ACTA PRO | 06 - Meeting Transcription",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WORKFLOW 06 — Meeting Transcription\n\nWebhook incremental: acepta fragmentos de audio (base64 o binary) durante la reunión, uno por uno, sin esperar a que termine toda la reunión. Envía cada fragmento a un servicio Speech-to-Text (placeholder OpenAI Whisper) y guarda el texto resultante junto con meeting_id, timestamp y confidence.\n\nCONFIGURAR: credencial del servicio STT (OpenAI u otro configurable) y destino de almacenamiento (Postgres/Sheets).",
+        "height": 260,
+        "width": 560,
+        "color": 5
+      },
+      "id": "uzo0ouxh8cto9gx1",
+      "name": "Nota - vzqo",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "acta-pro/audio-chunk",
+        "responseMode": "responseNode",
+        "options": {
+          "binaryData": true
+        }
+      },
+      "id": "jhe2os4dkwbweo87",
+      "name": "Webhook /audio-chunk",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "meeting_id",
+              "value": "={{ $json.body.meeting_id }}",
+              "type": "string"
+            },
+            {
+              "name": "chunk_timestamp",
+              "value": "={{ $json.body.timestamp }}",
+              "type": "string"
+            },
+            {
+              "name": "expected_participants",
+              "value": "={{ $json.body.participantes_esperados || $json.body.participants }}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "6c1ol9zn1xov5nx6",
+      "name": "Extraer metadatos del fragmento",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        260,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/audio/transcriptions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "whisper-1"
+            },
+            {
+              "name": "file",
+              "parameterType": "formBinaryData",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {},
+        "onError": "continueRegularOutput"
+      },
+      "id": "0c7j7c6f8lv3vqb3",
+      "name": "CONFIGURAR - Speech to Text (Whisper)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        180
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "CONFIGURAR - OpenAI API Key"
+        }
+      },
+      "notes": "Servicio configurable: reemplazar por otro proveedor STT compatible con n8n si se requiere."
+    },
+    {
+      "parameters": {
+        "jsCode": "const meta = $('Extraer metadatos del fragmento').item.json;\nconst sttResult = items[0].json;\nreturn [{ json: {\n  meeting_id: meta.meeting_id,\n  timestamp: meta.chunk_timestamp,\n  text: sttResult.text || '',\n  confidence_score: sttResult.confidence ?? null,\n  expected_participants: meta.expected_participants,\n}}];"
+      },
+      "id": "gyjgl2hpi5nd9hc4",
+      "name": "Armar segmento de transcripción",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        780,
+        180
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "1rfdnjfnbl8h5r5e",
+      "name": "CONFIGURAR - Enviar a 07 Speaker Identification",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        90.0
+      ],
+      "notes": "Placeholder: Execute Workflow -> 'ACTA PRO | 07 - Speaker Identification' con el segmento de texto."
+    },
+    {
+      "parameters": {},
+      "id": "ygwetbl9ysllh7fo",
+      "name": "CONFIGURAR - Guardar segmento (Postgres/Sheets)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        270.0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { received: true, meeting_id: $json.meeting_id } }}"
+      },
+      "id": "k36i7a9g292krl5c",
+      "name": "Responder recibido",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        180
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook /audio-chunk": {
+      "main": [
+        [
+          {
+            "node": "Extraer metadatos del fragmento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer metadatos del fragmento": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - Speech to Text (Whisper)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIGURAR - Speech to Text (Whisper)": {
+      "main": [
+        [
+          {
+            "node": "Armar segmento de transcripción",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar segmento de transcripción": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - Enviar a 07 Speaker Identification",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "CONFIGURAR - Guardar segmento (Postgres/Sheets)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIGURAR - Guardar segmento (Postgres/Sheets)": {
+      "main": [
+        [
+          {
+            "node": "Responder recibido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "acta-pro-mvp"
+  },
+  "id": "bgckjhmqwfca4ztsacne",
+  "tags": [
+    {
+      "name": "ACTA PRO"
+    }
+  ]
+}
