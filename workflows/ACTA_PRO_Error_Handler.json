@@ -1,0 +1,111 @@
+{
+  "name": "ACTA PRO | Error Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## ACTA PRO — Error Handler\n\nWorkflow central de manejo de errores. Configúralo como 'Error Workflow' en cada uno de los workflows críticos de ACTA PRO (Settings -> Error Workflow). Registra workflow, node, meeting_id, error y timestamp; marca processing_status = retry_required. NUNCA elimina la reunión ni la información ya procesada.",
+        "height": 240,
+        "width": 560,
+        "color": 5
+      },
+      "id": "ggak2fusrss27c1u",
+      "name": "Nota - ya6a",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "h4ungh5inbe1er7a",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const e = items[0].json;\nreturn [{ json: {\n  workflow: e.workflow?.name || null,\n  node: e.execution?.lastNodeExecuted || null,\n  meeting_id: e.execution?.data?.resultData?.runData ? null : null,\n  error: e.execution?.error?.message || JSON.stringify(e).slice(0, 500),\n  timestamp: new Date().toISOString(),\n  processing_status: 'retry_required',\n}}];"
+      },
+      "id": "00rgo3xo218ukuii",
+      "name": "Construir registro de error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        260,
+        180
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "1rdp2mr6xeen6bbw",
+      "name": "CONFIGURAR - Registrar en Audit Log (Postgres/Sheets)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        520,
+        90.0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "w6ztd1sdnwbyl9fw",
+      "name": "CONFIGURAR - Notificar administrador (email)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        520,
+        270.0
+      ],
+      "notes": "Placeholder: notificar por Gmail al administrador de ACTA PRO cuando falla una integración crítica."
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Construir registro de error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construir registro de error": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - Registrar en Audit Log (Postgres/Sheets)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "CONFIGURAR - Notificar administrador (email)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "acta-pro-mvp"
+  },
+  "id": "smk9e46o0as0ifh5szul",
+  "tags": [
+    {
+      "name": "ACTA PRO"
+    }
+  ]
+}
