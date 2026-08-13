@@ -1,0 +1,124 @@
+{
+  "name": "ACTA PRO | 11 - Teacher Approval",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WORKFLOW 11 — Teacher Approval\n\nEl borrador NUNCA se convierte automáticamente en acta final. Este workflow expone un Webhook para que el frontend consulte/actualice el estado de revisión: awaiting_teacher_review -> (aprobado | editado | rechazado). Solo tras la aprobación explícita se marca teacher_approved = true.",
+        "height": 220,
+        "width": 520,
+        "color": 5
+      },
+      "id": "44huelnkrkgl0d8q",
+      "name": "Nota - kqdh",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "acta-pro/teacher-review",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "r6r2dcedrcmwdebo",
+      "name": "Webhook /teacher-review",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const b = items[0].json.body || items[0].json;\nconst decision = b.decision; // 'approve' | 'edit' | 'reject'\nconst result = {\n  meeting_id: b.meeting_id,\n  decision,\n  edited_content: b.edited_content || null,\n  teacher_approved: decision === 'approve',\n  status: decision === 'approve' ? 'teacher_approved' : (decision === 'edit' ? 'awaiting_teacher_review' : 'rejected'),\n  reviewed_at: new Date().toISOString(),\n};\nreturn [{ json: result }];"
+      },
+      "id": "v7xiyhona6dopepg",
+      "name": "Procesar decisión docente",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        260,
+        180
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "zusyv0g8hc9mc6lw",
+      "name": "CONFIGURAR - Guardar estado (Postgres/Sheets)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        520,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "cx11c25o0wzoy3yx",
+      "name": "Responder al frontend",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        780,
+        180
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook /teacher-review": {
+      "main": [
+        [
+          {
+            "node": "Procesar decisión docente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar decisión docente": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - Guardar estado (Postgres/Sheets)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIGURAR - Guardar estado (Postgres/Sheets)": {
+      "main": [
+        [
+          {
+            "node": "Responder al frontend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "acta-pro-mvp"
+  },
+  "id": "094liyujuxwypxusln0n",
+  "tags": [
+    {
+      "name": "ACTA PRO"
+    }
+  ]
+}
