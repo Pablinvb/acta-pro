@@ -1,0 +1,216 @@
+{
+  "name": "ACTA PRO | 14 - Archive Meeting",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WORKFLOW 14 — Archive Meeting\n\nGuarda el acta final en Google Drive con estructura por docente/estudiante/año: ACTA PRO/Docentes/{{teacher_name}}/{{student_name}}/{{school_year}}/{{meeting_date}} - {{meeting_type}}. La transcripción completa se guarda en una ubicación SEPARADA con acceso restringido.\n\nCONFIGURAR: credencial de Google Drive OAuth2 y carpeta raíz 'ACTA PRO'.",
+        "height": 240,
+        "width": 560,
+        "color": 5
+      },
+      "id": "hvob3uubgl3nsqfx",
+      "name": "Nota - zsl1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "meeting_id"
+            },
+            {
+              "name": "teacher_name"
+            },
+            {
+              "name": "student_name"
+            },
+            {
+              "name": "school_year"
+            },
+            {
+              "name": "meeting_date"
+            },
+            {
+              "name": "meeting_type"
+            },
+            {
+              "name": "final_document_html"
+            },
+            {
+              "name": "transcript_full"
+            }
+          ]
+        }
+      },
+      "id": "mn4w5dqolq9q3uuh",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = items[0].json;\nconst year = (j.meeting_date || '').slice(0,4) || new Date().getFullYear();\nconst staticData = $getWorkflowStaticData('global');\nstaticData.sequences = staticData.sequences || {};\nconst key = `${year}-${j.student_name}`;\nstaticData.sequences[key] = (staticData.sequences[key] || 0) + 1;\nconst seq = String(staticData.sequences[key]).padStart(3, '0');\nconst code = `ACTA-${year}-${(j.student_name||'').toUpperCase().replace(/\\s+/g,'')}-${seq}`;\nreturn [{ json: { ...j, acta_code: code, folder_path: `ACTA PRO/Docentes/${j.teacher_name}/${j.student_name}/${year}/${j.meeting_date} - ${j.meeting_type}` } }];"
+      },
+      "id": "7m5nwribqthgqcsv",
+      "name": "Generar código único de acta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        260,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "operation": "create",
+        "name": "={{ $json.folder_path }}"
+      },
+      "id": "l3jir8rqz1mfwiv5",
+      "name": "CONFIGURAR - Drive: crear carpeta estudiante",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        520,
+        90.0
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": null,
+          "name": "CONFIGURAR - Google Drive OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "upload",
+        "name": "={{ $json.acta_code }}.html",
+        "folderId": "={{ $json.id }}"
+      },
+      "id": "5puuwzlzaxrhew3b",
+      "name": "CONFIGURAR - Drive: subir acta final",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        780,
+        90.0
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": null,
+          "name": "CONFIGURAR - Google Drive OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "upload",
+        "name": "={{ $('Generar código único de acta').item.json.acta_code }}-transcript.txt",
+        "folderId": "CONFIGURAR-carpeta-restringida-transcripciones"
+      },
+      "id": "a094vbo0r49ywy16",
+      "name": "CONFIGURAR - Drive: transcripción (acceso restringido)",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        520,
+        270.0
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": null,
+          "name": "CONFIGURAR - Google Drive OAuth2"
+        }
+      },
+      "notes": "Carpeta separada con permisos restringidos, distinta a la carpeta de actas."
+    },
+    {
+      "parameters": {},
+      "id": "qzdrjwfh5hdgrdfx",
+      "name": "CONFIGURAR - Guardar metadatos (Postgres/Sheets)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        90.0
+      ]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Generar código único de acta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar código único de acta": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - Drive: crear carpeta estudiante",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "CONFIGURAR - Drive: transcripción (acceso restringido)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIGURAR - Drive: crear carpeta estudiante": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - Drive: subir acta final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIGURAR - Drive: subir acta final": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - Guardar metadatos (Postgres/Sheets)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "acta-pro-mvp"
+  },
+  "id": "c7yozwugcxihnc8u1mvs",
+  "tags": [
+    {
+      "name": "ACTA PRO"
+    }
+  ]
+}
