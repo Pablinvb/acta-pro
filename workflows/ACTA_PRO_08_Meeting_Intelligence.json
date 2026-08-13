@@ -1,0 +1,121 @@
+{
+  "name": "ACTA PRO | 08 - Meeting Intelligence",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WORKFLOW 08 — Meeting Intelligence\n\nRecibe la transcripción completa (unión de segmentos) y la envía a un modelo de lenguaje que debe devolver EXCLUSIVAMENTE el JSON estructurado definido en el prompt (meeting_reason, topics, agreements, commitments, etc.). Reglas: no inventar información, no determinar culpables, no diagnosticar, marcar requires_teacher_review=true ante incertidumbre.\n\nCONFIGURAR: credencial OpenAI API (httpHeaderAuth: Authorization: Bearer ...).",
+        "height": 260,
+        "width": 560,
+        "color": 5
+      },
+      "id": "k8zxlv045chw4r97",
+      "name": "Nota - a392",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "meeting_id"
+            },
+            {
+              "name": "full_transcript"
+            }
+          ]
+        }
+      },
+      "id": "yqwb64raka2oqzs2",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: 'gpt-4.1-mini',\n  temperature: 0,\n  response_format: { type: 'json_object' },\n  messages: [ { role: 'system', content: `Eres un asistente que analiza transcripciones de reuniones escolares entre docentes y representantes. Debes responder UNICAMENTE con un objeto JSON valido con estas claves exactas: meeting_reason, topics, situations_discussed, teacher_actions, representative_concerns, student_interventions, agreements, commitments, responsible_people, evidence_mentions, follow_up_actions, follow_up_date, language_risk_flags, requires_teacher_review. Reglas: no inventes informacion que no este en la transcripcion; no determines quien tiene la razon; no emitas diagnosticos ni juicios personales; diferencia claramente hechos, declaraciones y acuerdos; todo acuerdo debe poder rastrearse a la transcripcion; si existe incertidumbre marca requires_teacher_review=true.` },\n    { role: 'user', content: $json.full_transcript } ]\n}) }}",
+        "options": {}
+      },
+      "id": "axrv2cgzp9dq8g2z",
+      "name": "CONFIGURAR - Analizar reunión (LLM)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        260,
+        180
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "CONFIGURAR - OpenAI API Key"
+        }
+      },
+      "notes": "El modelo/proveedor es configurable; mantener response_format json_object para forzar JSON."
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = items[0].json.choices?.[0]?.message?.content || '{}';\nlet parsed;\ntry { parsed = JSON.parse(raw); } catch (e) { parsed = { requires_teacher_review: true, parse_error: true }; }\nreturn [{ json: parsed }];"
+      },
+      "id": "j21stica11vbxsip",
+      "name": "Parsear y validar JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        520,
+        180
+      ]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - Analizar reunión (LLM)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIGURAR - Analizar reunión (LLM)": {
+      "main": [
+        [
+          {
+            "node": "Parsear y validar JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "acta-pro-mvp"
+  },
+  "id": "fznlaxj125isqaax2vgf",
+  "tags": [
+    {
+      "name": "ACTA PRO"
+    }
+  ]
+}
