@@ -38,9 +38,23 @@ acta-pro/
 │   ├── ACTA_PRO_14_Archive_Meeting.json
 │   ├── ACTA_PRO_15_Send_Meeting_Record.json
 │   └── ACTA_PRO_Error_Handler.json
+├── web/                                # Web app (Next.js) que consume los workflows
+├── design/                             # Prototipo de interfaz y notas de diseño
 └── docs/
     └── ARQUITECTURA.md                 # Arquitectura completa del sistema (MVP)
 ```
+
+## Interfaz
+
+La web app vive en [`web/`](web/) y cubre las cinco pantallas de la Fase 1:
+agenda, ficha previa, sala de reunión, revisión del acta y envío. Arranca en modo
+demostración sin necesidad de n8n:
+
+```bash
+npm --prefix web install && npm --prefix web run dev
+```
+
+El diseño y el prototipo clickeable están en [`design/`](design/).
 
 ## Arquitectura
 

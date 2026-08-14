@@ -1,0 +1,171 @@
+@import 'tailwindcss';
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Tokens de ACTA PRO.
+
+   La paleta vive en variables CSS y Tailwind las consume por referencia, así
+   que un cambio de tema repinta toda la app sin recompilar utilidades.
+
+   Tres estados de tema, no dos: `data-theme="light|dark"` cuando la persona
+   elige, y nada cuando deja «sistema» — ese caso lo resuelve prefers-color-scheme.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --ground: #f2f4f8;
+  --surface: #ffffff;
+  --surface-2: #f7f9fc;
+  --surface-3: #edf0f7;
+  --border: #dde1ec;
+  --border-strong: #c2c9db;
+  --ink: #171b2b;
+  --ink-2: #414960;
+  --ink-3: #6e7690;
+  --accent: #37469b;
+  --accent-on: #ffffff;
+  --accent-soft: #e7eaf7;
+  --accent-border: #bfc7e9;
+  --ok: #16704f;
+  --ok-soft: #e2f1eb;
+  --ok-border: #a6d4c2;
+  --warn: #8b5804;
+  --warn-soft: #faeeda;
+  --warn-border: #e2c489;
+  --crit: #a8302a;
+  --crit-soft: #fbe7e5;
+  --crit-border: #edb2ac;
+  --shadow-sm: 0 1px 2px rgb(23 27 43 / 0.07);
+  --shadow-md: 0 1px 2px rgb(23 27 43 / 0.06), 0 10px 28px -14px rgb(23 27 43 / 0.35);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --ground: #0e1017;
+    --surface: #161926;
+    --surface-2: #1c2030;
+    --surface-3: #222739;
+    --border: #292e41;
+    --border-strong: #3a4159;
+    --ink: #e9ebf4;
+    --ink-2: #b3b9cc;
+    --ink-3: #848ca6;
+    --accent: #8593ee;
+    --accent-on: #0e1017;
+    --accent-soft: #1f2440;
+    --accent-border: #3a4374;
+    --ok: #57c398;
+    --ok-soft: #132a20;
+    --ok-border: #245c45;
+    --warn: #e0a94a;
+    --warn-soft: #2a2113;
+    --warn-border: #5e4a20;
+    --crit: #f0847a;
+    --crit-soft: #2e1918;
+    --crit-border: #6b322d;
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-md: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 28px -14px rgb(0 0 0 / 0.8);
+  }
+}
+
+:root[data-theme='dark'] {
+  --ground: #0e1017;
+  --surface: #161926;
+  --surface-2: #1c2030;
+  --surface-3: #222739;
+  --border: #292e41;
+  --border-strong: #3a4159;
+  --ink: #e9ebf4;
+  --ink-2: #b3b9cc;
+  --ink-3: #848ca6;
+  --accent: #8593ee;
+  --accent-on: #0e1017;
+  --accent-soft: #1f2440;
+  --accent-border: #3a4374;
+  --ok: #57c398;
+  --ok-soft: #132a20;
+  --ok-border: #245c45;
+  --warn: #e0a94a;
+  --warn-soft: #2a2113;
+  --warn-border: #5e4a20;
+  --crit: #f0847a;
+  --crit-soft: #2e1918;
+  --crit-border: #6b322d;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 28px -14px rgb(0 0 0 / 0.8);
+}
+
+@theme inline {
+  --color-ground: var(--ground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-accent: var(--accent);
+  --color-accent-on: var(--accent-on);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-border: var(--accent-border);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-ok-border: var(--ok-border);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-warn-border: var(--warn-border);
+  --color-crit: var(--crit);
+  --color-crit-soft: var(--crit-soft);
+  --color-crit-border: var(--crit-border);
+
+  /* Tipografía por función: la interfaz, el documento y los datos.
+     El acta usa serif porque es un registro institucional y debe verse
+     distinta del software que la produce. */
+  --font-ui: var(--font-plex-sans), system-ui, sans-serif;
+  --font-doc: var(--font-source-serif), Georgia, serif;
+  --font-data: var(--font-plex-mono), ui-monospace, monospace;
+
+  --shadow-card: var(--shadow-sm);
+  --shadow-float: var(--shadow-md);
+}
+
+@layer base {
+  html {
+    color-scheme: light dark;
+  }
+
+  body {
+    background-color: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Objetivo táctil mínimo en iPad. */
+  button,
+  a[role='button'],
+  [type='button'],
+  [type='submit'] {
+    min-height: 44px;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Las cifras que se comparan en columna deben alinearse. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
