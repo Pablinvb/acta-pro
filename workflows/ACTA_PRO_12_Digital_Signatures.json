@@ -1,0 +1,210 @@
+{
+  "name": "ACTA PRO | 12 - Digital Signatures",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WORKFLOW 12 — Digital Signatures\n\nEl frontend envía las firmas (docente y representante) mediante Webhook. Valida que existan las firmas requeridas, actualiza status = signed y registra una traza de auditoría (quién firmó, fecha, hora, versión del documento) llamando al workflow 17.\n\nCONFIGURAR: almacenamiento del estado (Postgres/Sheets).",
+        "height": 240,
+        "width": 560,
+        "color": 5
+      },
+      "id": "lg14vif95nn23kiu",
+      "name": "Nota - jqnf",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "acta-pro/signatures",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "anfrg3vnom407020",
+      "name": "Webhook /signatures",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const b = items[0].json.body || items[0].json;\nconst missing = [];\nif (!b.teacher_signature) missing.push('teacher_signature');\nif (!b.representative_signature) missing.push('representative_signature');\nif (!b.meeting_id) missing.push('meeting_id');\nreturn [{ json: {\n  valid: missing.length === 0,\n  missing,\n  meeting_id: b.meeting_id,\n  teacher_signature: b.teacher_signature || null,\n  representative_signature: b.representative_signature || null,\n  signed_at: new Date().toISOString(),\n  document_version: b.document_version || 1,\n}}];"
+      },
+      "id": "qupohmn60iraphqf",
+      "name": "Validar firmas requeridas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        260,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "s75k16g69z5vpos8",
+      "name": "IF Firmas completas",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        520,
+        180
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "f6pfna1x0bao7qyr",
+      "name": "CONFIGURAR - Actualizar status=signed (Postgres/Sheets)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        780,
+        90.0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "5g72fg6lr7hhasnt",
+      "name": "CONFIGURAR - Registrar auditoría (Execute 17)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        90.0
+      ],
+      "notes": "Placeholder: Execute Workflow -> 'ACTA PRO | 17 - Audit Trail' con action='signed', quién firmó, fecha, hora y document_version."
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'signed', meeting_id: $json.meeting_id } }}"
+      },
+      "id": "4gbkutiboldfl8z0",
+      "name": "Responder OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        90.0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 400,
+        "responseBody": "={{ { error: 'firmas_incompletas', missing: $json.missing } }}"
+      },
+      "id": "z9ie3lo3ph5lddas",
+      "name": "Responder Error 400",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        780,
+        270.0
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook /signatures": {
+      "main": [
+        [
+          {
+            "node": "Validar firmas requeridas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar firmas requeridas": {
+      "main": [
+        [
+          {
+            "node": "IF Firmas completas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Firmas completas": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - Actualizar status=signed (Postgres/Sheets)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder Error 400",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIGURAR - Actualizar status=signed (Postgres/Sheets)": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - Registrar auditoría (Execute 17)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIGURAR - Registrar auditoría (Execute 17)": {
+      "main": [
+        [
+          {
+            "node": "Responder OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "acta-pro-mvp"
+  },
+  "id": "1jbx92k1429e6wx7ld27",
+  "tags": [
+    {
+      "name": "ACTA PRO"
+    }
+  ]
+}
