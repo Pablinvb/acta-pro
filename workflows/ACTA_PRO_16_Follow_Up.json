@@ -1,0 +1,202 @@
+{
+  "name": "ACTA PRO | 16 - Follow Up",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WORKFLOW 16 — Follow Up\n\nSi el análisis de la reunión (workflow 08) identificó fecha de próxima reunión, un compromiso, tarea pendiente o seguimiento académico, este workflow solicita aprobación del docente ANTES de crear nada. Solo tras la aprobación se crea el evento en Google Calendar, relacionado con meeting_id, student_id y el acta anterior.",
+        "height": 240,
+        "width": 560,
+        "color": 5
+      },
+      "id": "q8d7xbmmner1ia0t",
+      "name": "Nota - xlu8",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "meeting_id"
+            },
+            {
+              "name": "student_id"
+            },
+            {
+              "name": "acta_code"
+            },
+            {
+              "name": "follow_up_date"
+            },
+            {
+              "name": "follow_up_actions"
+            },
+            {
+              "name": "teacher_approved_follow_up"
+            }
+          ]
+        }
+      },
+      "id": "6voawi3slr1p0vro",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.follow_up_date }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "leftValue": "={{ $json.teacher_approved_follow_up }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "kv1xxm81nfi98it0",
+      "name": "IF Hay seguimiento y fue aprobado",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        260,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "calendar": {
+          "__rl": true,
+          "mode": "list",
+          "value": "CONFIGURAR-calendar-id-docente"
+        },
+        "start": "={{ $json.follow_up_date }}",
+        "end": "={{ $json.follow_up_date }}",
+        "additionalFields": {
+          "summary": "=ACTA PRO | Seguimiento - {{ $json.student_id }}",
+          "description": "=Seguimiento generado a partir de {{ $json.acta_code }} (reunión {{ $json.meeting_id }}). Acciones: {{ $json.follow_up_actions }}"
+        }
+      },
+      "id": "gxa2pckj7soyoe28",
+      "name": "CONFIGURAR - Google Calendar: crear evento de seguimiento",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        520,
+        90.0
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": null,
+          "name": "CONFIGURAR - Google Calendar OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "eranw3g6l0ojhecq",
+      "name": "CONFIGURAR - Vincular evento con reunión (Postgres/Sheets)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        780,
+        90.0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "ky2kz8a6crh56neo",
+      "name": "CONFIGURAR - Notificar: pendiente de aprobación docente",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        520,
+        270.0
+      ],
+      "notes": "Se ejecuta cuando hay una fecha/acción de seguimiento pero el docente todavía no la ha aprobado. No se crea ningún evento hasta que teacher_approved_follow_up sea true."
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "IF Hay seguimiento y fue aprobado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Hay seguimiento y fue aprobado": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - Google Calendar: crear evento de seguimiento",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "CONFIGURAR - Notificar: pendiente de aprobación docente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIGURAR - Google Calendar: crear evento de seguimiento": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - Vincular evento con reunión (Postgres/Sheets)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "acta-pro-mvp"
+  },
+  "id": "09oq3duy2jqd5l0jzetl",
+  "tags": [
+    {
+      "name": "ACTA PRO"
+    }
+  ]
+}
