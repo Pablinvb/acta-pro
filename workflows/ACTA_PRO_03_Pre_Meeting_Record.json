@@ -1,0 +1,202 @@
+{
+  "name": "ACTA PRO | 03 - Pre Meeting Record",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WORKFLOW 03 — Pre Meeting Record\n\nAntes de la reunión, genera automáticamente un registro preliminar del acta (estudiante, curso, representante, docente, fecha, hora, modalidad, motivo inicial). Estado inicial: scheduled.\n\nCONFIGURAR: destino de almacenamiento — PostgreSQL recomendado; si no está disponible, usar Google Sheets como fallback temporal (nodo placeholder incluido para ambos).",
+        "height": 260,
+        "width": 560,
+        "color": 5
+      },
+      "id": "sx3s059ovkg246c1",
+      "name": "Nota - faco",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "meeting_id"
+            },
+            {
+              "name": "student_name"
+            },
+            {
+              "name": "course"
+            },
+            {
+              "name": "representative_name"
+            },
+            {
+              "name": "teacher_name"
+            },
+            {
+              "name": "date"
+            },
+            {
+              "name": "start_time"
+            },
+            {
+              "name": "modality"
+            },
+            {
+              "name": "initial_reason"
+            }
+          ]
+        }
+      },
+      "id": "zvbr3bgzmo4miprt",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "meeting_id",
+              "value": "={{ $json.meeting_id }}",
+              "type": "string"
+            },
+            {
+              "name": "student_name",
+              "value": "={{ $json.student_name }}",
+              "type": "string"
+            },
+            {
+              "name": "course",
+              "value": "={{ $json.course }}",
+              "type": "string"
+            },
+            {
+              "name": "representative_name",
+              "value": "={{ $json.representative_name }}",
+              "type": "string"
+            },
+            {
+              "name": "teacher_name",
+              "value": "={{ $json.teacher_name }}",
+              "type": "string"
+            },
+            {
+              "name": "date",
+              "value": "={{ $json.date }}",
+              "type": "string"
+            },
+            {
+              "name": "start_time",
+              "value": "={{ $json.start_time }}",
+              "type": "string"
+            },
+            {
+              "name": "modality",
+              "value": "={{ $json.modality }}",
+              "type": "string"
+            },
+            {
+              "name": "initial_reason",
+              "value": "={{ $json.initial_reason }}",
+              "type": "string"
+            },
+            {
+              "name": "status",
+              "value": "scheduled",
+              "type": "string"
+            },
+            {
+              "name": "created_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "u370j0sws3b7d321",
+      "name": "Armar registro preliminar",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        260,
+        180
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "7qfnvknx5ql4wmt2",
+      "name": "CONFIGURAR - PostgreSQL: insertar reunión",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        520,
+        90.0
+      ],
+      "notes": "Placeholder: INSERT INTO meetings (...) VALUES (...). Reemplazar por el nodo Postgres cuando la base esté configurada."
+    },
+    {
+      "parameters": {},
+      "id": "77nur6g4oh1t55fm",
+      "name": "CONFIGURAR - Fallback Google Sheets",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        520,
+        270.0
+      ],
+      "notes": "Placeholder: usar solo si PostgreSQL no está disponible en el MVP. Añadir fila a la hoja 'meetings'."
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Armar registro preliminar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar registro preliminar": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - PostgreSQL: insertar reunión",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "CONFIGURAR - Fallback Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "acta-pro-mvp"
+  },
+  "id": "mcl9aaqcdwesmianaf7x",
+  "tags": [
+    {
+      "name": "ACTA PRO"
+    }
+  ]
+}
