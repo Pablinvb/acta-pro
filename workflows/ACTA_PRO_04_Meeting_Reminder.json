@@ -1,0 +1,220 @@
+{
+  "name": "ACTA PRO | 04 - Meeting Reminder",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WORKFLOW 04 — Meeting Reminder\n\nCada 5 minutos revisa las reuniones registradas (workflow 03) y envía una alerta al docente cuando falten ~30 minutos para el inicio. El acta preliminar ya está preparada en ese momento.\n\nCONFIGURAR: consulta a la base de datos de reuniones (Postgres/Sheets) y credencial de Gmail. Preparado para integrarse luego con notificaciones push de la app ACTA PRO.",
+        "height": 240,
+        "width": 560,
+        "color": 5
+      },
+      "id": "n7p0uhd57ufv0e20",
+      "name": "Nota - rvf9",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "3p3fek0vceaoxlvq",
+      "name": "Cada 5 minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        180
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "gv31fesh9ig5fabj",
+      "name": "CONFIGURAR - Consultar reuniones próximas (Postgres/Sheets)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        260,
+        180
+      ],
+      "notes": "Placeholder: SELECT * FROM meetings WHERE status='scheduled' AND start_time BETWEEN now() AND now()+interval '35 minutes'."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ajustar cuando el nodo de consulta real este conectado.\n// Se espera que cada item tenga start_time (ISO) y ya no haya sido notificado.\nconst now = new Date();\nreturn items.filter(item => {\n  if (!item.json.start_time) return false;\n  const start = new Date(item.json.start_time);\n  const minutesUntil = (start - now) / 60000;\n  return minutesUntil > 25 && minutesUntil <= 35 && !item.json.reminder_sent;\n});"
+      },
+      "id": "f4d1kzeduqdyih7a",
+      "name": "Filtrar ~30 min antes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        520,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "teacher_email",
+              "value": "={{ $json.teacher_email }}",
+              "type": "string"
+            },
+            {
+              "name": "subject",
+              "value": "=ACTA PRO | Próxima reunión",
+              "type": "string"
+            },
+            {
+              "name": "message",
+              "value": "=ACTA PRO | Próxima reunión\n\nEstudiante: {{ $json.student_name }}\nRepresentante: {{ $json.representative_name }}\nHora: {{ $json.start_time }}\n\nEl acta preliminar ya está preparada.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "02not33m4xw7yjmj",
+      "name": "Armar mensaje de alerta",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        780,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.teacher_email }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.message }}",
+        "options": {}
+      },
+      "id": "t2lsru5qljbri1v5",
+      "name": "CONFIGURAR - Gmail: enviar recordatorio",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1040,
+        90.0
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": null,
+          "name": "CONFIGURAR - Gmail OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "0bnk4mam4fjflme8",
+      "name": "CONFIGURAR - Placeholder notificación push app",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        270.0
+      ],
+      "notes": "Placeholder para integrarse en Fase 5 con notificaciones push de la app ACTA PRO."
+    },
+    {
+      "parameters": {},
+      "id": "syuq83nlgdiyyxm6",
+      "name": "CONFIGURAR - Marcar reminder_sent (Postgres/Sheets)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        90.0
+      ]
+    }
+  ],
+  "connections": {
+    "Cada 5 minutos": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - Consultar reuniones próximas (Postgres/Sheets)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIGURAR - Consultar reuniones próximas (Postgres/Sheets)": {
+      "main": [
+        [
+          {
+            "node": "Filtrar ~30 min antes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar ~30 min antes": {
+      "main": [
+        [
+          {
+            "node": "Armar mensaje de alerta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar mensaje de alerta": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - Gmail: enviar recordatorio",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "CONFIGURAR - Placeholder notificación push app",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIGURAR - Gmail: enviar recordatorio": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - Marcar reminder_sent (Postgres/Sheets)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "acta-pro-mvp"
+  },
+  "id": "0jxs120kqsxld0iln32u",
+  "tags": [
+    {
+      "name": "ACTA PRO"
+    }
+  ]
+}
