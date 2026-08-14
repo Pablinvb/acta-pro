@@ -1,0 +1,135 @@
+{
+  "name": "ACTA PRO | 13 - Final Document",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WORKFLOW 13 — Final Document\n\nGenera la versión final del acta (para el MVP: HTML; luego Google Docs / PDF) combinando el contenido aprobado por el docente (workflow 11) con las firmas (workflow 12). Incluye datos del estudiante, representante, docente, reunión, acuerdos y un código único de acta. El código final (ACTA-YYYY-ESTUDIANTE-SECUENCIA) se asigna en el workflow 14 al archivar.",
+        "height": 240,
+        "width": 560,
+        "color": 5
+      },
+      "id": "pmtvsatbjco5f3jl",
+      "name": "Nota - vwab",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "meeting_id"
+            },
+            {
+              "name": "approved_content_html"
+            },
+            {
+              "name": "meeting_data"
+            },
+            {
+              "name": "teacher_signature"
+            },
+            {
+              "name": "representative_signature"
+            },
+            {
+              "name": "signed_at"
+            }
+          ]
+        }
+      },
+      "id": "u72n3b1r4o7dtr9v",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = items[0].json;\nconst m = j.meeting_data || {};\nconst html = `\n${j.approved_content_html || ''}\n<hr/>\n<h2>Firmas</h2>\n<p>Docente: ${j.teacher_signature ? 'Firmado' : 'Pendiente'}</p>\n<p>Representante: ${j.representative_signature ? 'Firmado' : 'Pendiente'}</p>\n<p>Fecha y hora de firma: ${j.signed_at || ''}</p>\n`;\nreturn [{ json: {\n  meeting_id: j.meeting_id,\n  final_document_html: html,\n  teacher_name: m.teacher_name,\n  student_name: m.student_name,\n  representative_name: m.representative_name,\n  meeting_date: m.date,\n  status: 'final',\n}}];"
+      },
+      "id": "2jj303tzogf0xevn",
+      "name": "Construir documento final HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        260,
+        180
+      ],
+      "notes": "El código único ACTA-YYYY-ESTUDIANTE-SECUENCIA se genera en el workflow 14 (Archive Meeting) justo antes de guardar en Drive."
+    },
+    {
+      "parameters": {},
+      "id": "1a1i9d4412p8p90k",
+      "name": "CONFIGURAR - Guardar versión final (Postgres/Sheets)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        520,
+        90.0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "uigaivyuvhvlt0yd",
+      "name": "CONFIGURAR - Enviar a 14 Archive Meeting",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        520,
+        270.0
+      ],
+      "notes": "Placeholder: Execute Workflow -> 'ACTA PRO | 14 - Archive Meeting' con final_document_html y datos de la reunión."
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Construir documento final HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construir documento final HTML": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - Guardar versión final (Postgres/Sheets)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "CONFIGURAR - Enviar a 14 Archive Meeting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "acta-pro-mvp"
+  },
+  "id": "51we19cbqj7d89dlgyys",
+  "tags": [
+    {
+      "name": "ACTA PRO"
+    }
+  ]
+}
