@@ -1,0 +1,1008 @@
+<title>ACTA PRO</title>
+<style>
+  /* ============================================================
+     ACTA PRO — prototipo de interfaz (Fase 1)
+     Tokens: la app se pinta SIEMPRE con variables. Nunca literales.
+     ============================================================ */
+  :root {
+    --ground:#F2F4F8; --surface:#FFFFFF; --surface-2:#F7F9FC; --surface-3:#EDF0F7;
+    --border:#DDE1EC; --border-strong:#C2C9DB;
+    --ink:#171B2B; --ink-2:#414960; --ink-3:#6E7690;
+    --accent:#37469B; --accent-on:#FFFFFF; --accent-soft:#E7EAF7; --accent-border:#BFC7E9;
+    --ok:#16704F;  --ok-soft:#E2F1EB;  --ok-border:#A6D4C2;
+    --warn:#8B5804; --warn-soft:#FAEEDA; --warn-border:#E2C489;
+    --crit:#A8302A; --crit-soft:#FBE7E5; --crit-border:#EDB2AC;
+    --shadow-sm:0 1px 2px rgba(23,27,43,.07);
+    --shadow-md:0 1px 2px rgba(23,27,43,.06), 0 10px 28px -14px rgba(23,27,43,.35);
+    --ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+    --doc:ui-serif,"New York","Iowan Old Style",Charter,"Palatino Linotype",Georgia,serif;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono","Cascadia Code",Consolas,monospace;
+    --r:10px; --r-lg:14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:#0E1017; --surface:#161926; --surface-2:#1C2030; --surface-3:#222739;
+      --border:#292E41; --border-strong:#3A4159;
+      --ink:#E9EBF4; --ink-2:#B3B9CC; --ink-3:#848CA6;
+      --accent:#8593EE; --accent-on:#0E1017; --accent-soft:#1F2440; --accent-border:#3A4374;
+      --ok:#57C398;  --ok-soft:#132A20;  --ok-border:#245C45;
+      --warn:#E0A94A; --warn-soft:#2A2113; --warn-border:#5E4A20;
+      --crit:#F0847A; --crit-soft:#2E1918; --crit-border:#6B322D;
+      --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+      --shadow-md:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -14px rgba(0,0,0,.8);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#0E1017; --surface:#161926; --surface-2:#1C2030; --surface-3:#222739;
+    --border:#292E41; --border-strong:#3A4159;
+    --ink:#E9EBF4; --ink-2:#B3B9CC; --ink-3:#848CA6;
+    --accent:#8593EE; --accent-on:#0E1017; --accent-soft:#1F2440; --accent-border:#3A4374;
+    --ok:#57C398;  --ok-soft:#132A20;  --ok-border:#245C45;
+    --warn:#E0A94A; --warn-soft:#2A2113; --warn-border:#5E4A20;
+    --crit:#F0847A; --crit-soft:#2E1918; --crit-border:#6B322D;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+    --shadow-md:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -14px rgba(0,0,0,.8);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin:0; background:var(--ground); color:var(--ink);
+    font-family:var(--ui); font-size:15px; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
+
+  /* ---------- App shell: iPad landscape primero (1024×768) ---------- */
+  .shell { display:grid; grid-template-columns:236px 1fr; height:100dvh; min-height:680px; }
+
+  /* ---------- Rail lateral: la navegación ES el pipeline ---------- */
+  .rail { background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow-y:auto; }
+  .brand { display:flex; align-items:center; gap:10px; padding:18px 18px 14px; }
+  .brand-mark { width:30px; height:30px; border-radius:8px; background:var(--accent); color:var(--accent-on);
+    display:grid; place-items:center; font-weight:700; font-size:13px; letter-spacing:.02em; flex:none; }
+  .brand-name { font-weight:650; letter-spacing:.02em; font-size:15px; }
+  .brand-sub { font-family:var(--mono); font-size:10px; color:var(--ink-3); letter-spacing:.06em; text-transform:uppercase; }
+
+  .rail-label { padding:6px 18px; font-size:10.5px; font-weight:650; letter-spacing:.09em;
+    text-transform:uppercase; color:var(--ink-3); }
+  .steps { list-style:none; margin:0; padding:0 10px; display:flex; flex-direction:column; gap:2px; }
+  .step { display:flex; align-items:center; gap:11px; width:100%; min-height:46px; padding:7px 9px;
+    border:0; border-radius:var(--r); background:transparent; color:var(--ink-2);
+    font:inherit; font-size:13.5px; text-align:left; cursor:pointer; }
+  .step:hover { background:var(--surface-2); color:var(--ink); }
+  .step[aria-current="true"] { background:var(--accent-soft); color:var(--ink); font-weight:600; }
+  .step-n { font-family:var(--mono); font-size:10.5px; font-variant-numeric:tabular-nums;
+    width:22px; height:22px; flex:none; display:grid; place-items:center; border-radius:6px;
+    border:1px solid var(--border-strong); color:var(--ink-3); background:var(--surface); }
+  .step[aria-current="true"] .step-n { background:var(--accent); border-color:var(--accent); color:var(--accent-on); }
+  .step.done .step-n { background:var(--ok-soft); border-color:var(--ok-border); color:var(--ok); }
+  .step-t { display:flex; flex-direction:column; line-height:1.25; }
+  .step-wf { font-family:var(--mono); font-size:9.5px; color:var(--ink-3); letter-spacing:.04em; margin-top:2px; }
+
+  .rail-foot { margin-top:auto; padding:14px 18px 18px; border-top:1px solid var(--border); display:flex; align-items:center; gap:10px; }
+  .avatar { width:32px; height:32px; border-radius:50%; flex:none; display:grid; place-items:center;
+    background:var(--surface-3); color:var(--ink-2); font-size:12px; font-weight:650; }
+
+  /* ---------- Zona principal ---------- */
+  .main { display:flex; flex-direction:column; min-width:0; overflow:hidden; }
+  .topbar { display:flex; align-items:center; gap:14px; padding:12px 22px; background:var(--surface);
+    border-bottom:1px solid var(--border); flex:none; }
+  .ctx { display:flex; align-items:center; gap:10px; min-width:0; }
+  .ctx-id { font-family:var(--mono); font-size:11.5px; color:var(--ink-2); background:var(--surface-2);
+    border:1px solid var(--border); border-radius:6px; padding:4px 8px; white-space:nowrap; }
+  .ctx-name { font-size:13.5px; color:var(--ink-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .topbar-actions { margin-left:auto; display:flex; align-items:center; gap:8px; }
+
+  .view { flex:1; overflow-y:auto; padding:22px; }
+  .view[hidden] { display:none; }
+  .page-head { display:flex; align-items:flex-end; gap:14px; margin-bottom:18px; flex-wrap:wrap; }
+  h1 { font-size:23px; line-height:1.2; margin:0; font-weight:650; letter-spacing:-.01em; text-wrap:balance; }
+  .page-sub { color:var(--ink-3); font-size:13.5px; margin:4px 0 0; }
+  .wf-tag { font-family:var(--mono); font-size:10px; letter-spacing:.05em; color:var(--ink-3);
+    border:1px dashed var(--border-strong); border-radius:5px; padding:3px 7px; white-space:nowrap; }
+
+  /* ---------- Primitivas ---------- */
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); box-shadow:var(--shadow-sm); }
+  .card-h { display:flex; align-items:center; gap:10px; padding:13px 16px; border-bottom:1px solid var(--border); }
+  .card-h h2 { margin:0; font-size:13.5px; font-weight:650; letter-spacing:.01em; }
+  .card-b { padding:16px; }
+  .grid { display:grid; gap:14px; }
+
+  .btn { min-height:44px; display:inline-flex; align-items:center; justify-content:center; gap:7px;
+    padding:0 16px; border-radius:var(--r); border:1px solid var(--border-strong); background:var(--surface);
+    color:var(--ink); font:inherit; font-size:13.5px; font-weight:550; cursor:pointer; white-space:nowrap; }
+  .btn:hover { background:var(--surface-2); }
+  .btn-primary { background:var(--accent); border-color:var(--accent); color:var(--accent-on); }
+  .btn-primary:hover { filter:brightness(1.08); background:var(--accent); }
+  .btn-danger { color:var(--crit); border-color:var(--crit-border); background:var(--crit-soft); }
+  .btn-danger:hover { background:var(--crit-soft); filter:brightness(.97); }
+  .btn-sm { min-height:34px; padding:0 11px; font-size:12.5px; border-radius:8px; }
+  .btn:disabled { opacity:.45; cursor:not-allowed; }
+
+  .pill { display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600;
+    padding:3px 9px; border-radius:999px; border:1px solid var(--border); background:var(--surface-2); color:var(--ink-2); }
+  .pill::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; flex:none; }
+  .pill.ok   { color:var(--ok);   background:var(--ok-soft);   border-color:var(--ok-border); }
+  .pill.warn { color:var(--warn); background:var(--warn-soft); border-color:var(--warn-border); }
+  .pill.crit { color:var(--crit); background:var(--crit-soft); border-color:var(--crit-border); }
+  .pill.info { color:var(--accent); background:var(--accent-soft); border-color:var(--accent-border); }
+
+  .meta { font-family:var(--mono); font-size:11px; font-variant-numeric:tabular-nums; color:var(--ink-3); }
+  .muted { color:var(--ink-3); }
+  .src { font-size:10px; font-family:var(--mono); color:var(--ink-3); letter-spacing:.04em; }
+
+  /* ---------- 01 Agenda ---------- */
+  .tiles { grid-template-columns:repeat(4,1fr); margin-bottom:16px; }
+  .tile { padding:14px 16px; }
+  .tile-k { font-size:11px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-3); }
+  .tile-v { font-size:30px; font-weight:600; font-variant-numeric:tabular-nums; letter-spacing:-.02em; margin-top:6px; line-height:1; }
+  .tile-n { font-size:12px; color:var(--ink-3); margin-top:6px; }
+  .tile.attn .tile-v { color:var(--warn); }
+
+  .rows { display:flex; flex-direction:column; }
+  .row { display:grid; grid-template-columns:78px 1fr 190px 150px 128px; align-items:center; gap:14px;
+    padding:13px 16px; border-top:1px solid var(--border); }
+  .row:first-child { border-top:0; }
+  .row-time { font-family:var(--mono); font-size:13px; font-variant-numeric:tabular-nums; color:var(--ink-2); }
+  .row-student { font-weight:600; font-size:14px; }
+  .row-course { font-size:12px; color:var(--ink-3); margin-top:1px; }
+  .row-rep { font-size:13px; color:var(--ink-2); }
+  .row-act { justify-self:end; }
+
+  /* ---------- 02 Ficha previa ---------- */
+  .two { grid-template-columns:1.15fr .85fr; align-items:start; }
+  .idcard { display:flex; gap:14px; align-items:center; }
+  .idcard .avatar { width:52px; height:52px; font-size:17px; }
+  .kv { display:grid; grid-template-columns:auto 1fr; gap:8px 16px; font-size:13.5px; }
+  .kv dt { color:var(--ink-3); }
+  .kv dd { margin:0; }
+  .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--border);
+    border:1px solid var(--border); border-radius:var(--r); overflow:hidden; }
+  .stat { background:var(--surface); padding:12px 14px; }
+  .stat-v { font-size:21px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1.1; }
+  .stat-k { font-size:11px; color:var(--ink-3); margin-top:3px; }
+  .banner { display:flex; gap:11px; padding:12px 14px; border-radius:var(--r); font-size:13px; align-items:flex-start; }
+  .banner.warn { background:var(--warn-soft); border:1px solid var(--warn-border); color:var(--warn); }
+  .banner.info { background:var(--accent-soft); border:1px solid var(--accent-border); color:var(--accent); }
+  .banner.crit { background:var(--crit-soft); border:1px solid var(--crit-border); color:var(--crit); }
+  .banner.ok   { background:var(--ok-soft);   border:1px solid var(--ok-border);   color:var(--ok); }
+  .banner strong { display:block; margin-bottom:2px; }
+  .hist { display:flex; flex-direction:column; }
+  .hist-i { display:flex; align-items:center; gap:12px; padding:11px 0; border-top:1px solid var(--border); }
+  .hist-i:first-child { border-top:0; }
+  ul.clean { margin:0; padding-left:19px; font-size:13.5px; color:var(--ink-2); }
+  ul.clean li { margin:5px 0; }
+
+  /* ---------- 03 Sala de reunión ---------- */
+  .live { grid-template-columns:340px 1fr; align-items:start; }
+  .rec { display:flex; align-items:center; gap:12px; }
+  .rec-dot { width:12px; height:12px; border-radius:50%; background:var(--crit); flex:none; animation:pulse 1.9s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.35;transform:scale(.82)} }
+  .rec-t { font-family:var(--mono); font-size:31px; font-variant-numeric:tabular-nums; letter-spacing:-.01em; line-height:1; }
+  .wave { width:100%; height:64px; display:block; margin-top:14px; border-radius:8px; background:var(--surface-2); }
+  .chunk { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:12px;
+    padding:9px 12px; border-radius:8px; background:var(--surface-2); border:1px solid var(--border); font-size:12px; }
+  .who { display:flex; align-items:center; gap:11px; padding:9px 0; border-top:1px solid var(--border); }
+  .who:first-child { border-top:0; }
+  .who .avatar { width:30px; height:30px; font-size:11px; }
+  .who-n { font-size:13.5px; font-weight:550; }
+  .who-r { font-size:11.5px; color:var(--ink-3); }
+  .feed { max-height:330px; overflow-y:auto; padding:4px 16px 16px; }
+  .utt { display:grid; grid-template-columns:64px 1fr; gap:12px; padding:9px 0; border-top:1px solid var(--border); }
+  .utt:first-child { border-top:0; }
+  .utt-ts { font-family:var(--mono); font-size:11px; font-variant-numeric:tabular-nums; color:var(--ink-3); padding-top:2px; }
+  .utt-sp { font-size:11.5px; font-weight:650; color:var(--accent); letter-spacing:.02em; }
+  .utt-x { font-size:13.5px; color:var(--ink-2); margin-top:2px; }
+  .utt.mark { background:var(--accent-soft); border-radius:8px; padding:9px 10px; margin:4px -10px; border-top-color:transparent; }
+
+  /* ---------- 04 Revisión del acta (pantalla central) ---------- */
+  .review { display:grid; grid-template-columns:1fr 372px; gap:0; height:100%; }
+  .doc-pane { overflow-y:auto; padding:22px 26px 90px; border-right:1px solid var(--border); background:var(--surface); }
+  .doc { font-family:var(--doc); max-width:63ch; margin:0 auto; color:var(--ink); }
+  .doc h1 { font-family:var(--doc); font-size:20px; text-align:center; letter-spacing:.04em;
+    text-transform:uppercase; font-weight:600; margin:0 0 4px; }
+  .doc .doc-id { text-align:center; font-family:var(--mono); font-size:11px; color:var(--ink-3); margin-bottom:22px; }
+  .doc section { margin-bottom:19px; }
+  .doc h2 { font-family:var(--ui); font-size:11px; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
+    color:var(--ink-3); margin:0 0 7px; padding-bottom:5px; border-bottom:1px solid var(--border); }
+  .doc p, .doc li { font-size:15px; line-height:1.62; margin:0 0 7px; }
+  .doc ul { margin:0; padding-left:20px; }
+  .doc .gen { display:grid; grid-template-columns:auto 1fr auto 1fr; gap:5px 12px; font-family:var(--ui); font-size:13px; }
+  .doc .gen dt { color:var(--ink-3); }
+  .doc .gen dd { margin:0; }
+  .sig { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:12px; font-family:var(--ui); font-size:12.5px; }
+  .sig-l { border-top:1px solid var(--border-strong); padding-top:7px; color:var(--ink-3); }
+
+  mark.flag { background:transparent; color:inherit; border-radius:3px; padding:1px 2px; cursor:pointer;
+    box-decoration-break:clone; -webkit-box-decoration-break:clone; }
+  mark.flag[data-level="RED"]    { background:var(--crit-soft); box-shadow:inset 0 -2px 0 var(--crit); }
+  mark.flag[data-level="YELLOW"] { background:var(--warn-soft); box-shadow:inset 0 -2px 0 var(--warn); }
+  mark.flag.applied { background:var(--ok-soft); box-shadow:inset 0 -2px 0 var(--ok); }
+  mark.flag.kept    { background:transparent; box-shadow:inset 0 -1px 0 var(--border-strong); }
+  mark.flag.sel { outline:2px solid var(--accent); outline-offset:2px; }
+
+  .rev-pane { display:flex; flex-direction:column; overflow:hidden; background:var(--surface-2); }
+  .rev-h { padding:15px 16px 13px; border-bottom:1px solid var(--border); }
+  .rev-h h2 { margin:0; font-size:13.5px; font-weight:650; }
+  .tally { display:flex; gap:7px; margin-top:11px; }
+  .tally b { font-variant-numeric:tabular-nums; }
+  .rev-list { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:10px; }
+  .find { border:1px solid var(--border); border-left:3px solid var(--border-strong); border-radius:var(--r);
+    background:var(--surface); padding:12px; cursor:pointer; }
+  .find[data-level="RED"]    { border-left-color:var(--crit); }
+  .find[data-level="YELLOW"] { border-left-color:var(--warn); }
+  .find.sel { box-shadow:0 0 0 2px var(--accent-border); border-color:var(--accent-border); }
+  .find.resolved { opacity:.62; border-left-color:var(--ok); }
+  .find-h { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .find-loc { font-family:var(--mono); font-size:10px; color:var(--ink-3); margin-left:auto; }
+  .quote { font-family:var(--doc); font-size:13.5px; line-height:1.5; color:var(--ink); margin:0 0 8px; }
+  .why { font-size:12.5px; color:var(--ink-3); margin:0 0 10px; line-height:1.45; }
+  .sugg { background:var(--ok-soft); border:1px solid var(--ok-border); border-radius:8px; padding:9px 10px; margin-bottom:10px; }
+  .sugg-k { font-size:9.5px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:var(--ok); margin-bottom:4px; }
+  .sugg-x { font-family:var(--doc); font-size:13.5px; line-height:1.5; }
+  .find-a { display:flex; gap:7px; }
+  .resolved-note { font-size:12px; color:var(--ok); font-weight:600; display:flex; align-items:center; gap:6px; }
+
+  .approve-bar { position:sticky; bottom:0; margin-top:auto; padding:12px 14px; background:var(--surface);
+    border-top:1px solid var(--border); display:flex; flex-direction:column; gap:10px; }
+  .gate { font-size:12.5px; padding:10px 12px; border-radius:8px; line-height:1.4; }
+  .approve-a { display:flex; gap:8px; }
+  .approve-a .btn { flex:1; }
+
+  /* ---------- 05 Envío y archivo ---------- */
+  .tree { font-family:var(--mono); font-size:12px; line-height:1.85; color:var(--ink-2); }
+  .tree .lvl { padding-left:1.4em; }
+  .tree .leaf { color:var(--ink); font-weight:600; }
+  .tree .lock { color:var(--crit); }
+  .mail { border:1px solid var(--border); border-radius:var(--r); overflow:hidden; }
+  .mail-h { padding:11px 14px; border-bottom:1px solid var(--border); background:var(--surface-2);
+    display:grid; grid-template-columns:auto 1fr; gap:4px 12px; font-size:12.5px; }
+  .mail-h dt { color:var(--ink-3); }
+  .mail-h dd { margin:0; }
+  .mail-b { padding:14px; font-size:13.5px; color:var(--ink-2); line-height:1.6; }
+  .attach { display:flex; align-items:center; gap:9px; margin:12px 14px 14px; padding:9px 12px;
+    border:1px solid var(--border); border-radius:8px; font-size:12.5px; background:var(--surface-2); }
+  .check { display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--border); font-size:13.5px; }
+  .check:first-child { border-top:0; }
+  .tick { width:20px; height:20px; border-radius:50%; flex:none; display:grid; place-items:center;
+    font-size:11px; font-weight:700; background:var(--ok-soft); color:var(--ok); border:1px solid var(--ok-border); }
+  .tick.pending { background:var(--surface-2); color:var(--ink-3); border-color:var(--border-strong); }
+
+  .sent { text-align:center; padding:44px 20px; }
+  .sent-i { width:56px; height:56px; margin:0 auto 16px; border-radius:50%; display:grid; place-items:center;
+    background:var(--ok-soft); border:1px solid var(--ok-border); color:var(--ok); font-size:24px; }
+
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } }
+
+  /* ---------- Adaptación: iPad retrato y pantallas angostas ---------- */
+  @media (max-width:1000px) {
+    .shell { grid-template-columns:1fr; height:auto; min-height:0; }
+    .rail { border-right:0; border-bottom:1px solid var(--border); }
+    .steps { flex-direction:row; overflow-x:auto; padding:0 10px 10px; }
+    .step { min-width:150px; }
+    .rail-foot { display:none; }
+    .main { overflow:visible; }
+    .view { overflow:visible; }
+    .tiles { grid-template-columns:repeat(2,1fr); }
+    .two, .live, .review { grid-template-columns:1fr; }
+    .doc-pane { border-right:0; border-bottom:1px solid var(--border); padding-bottom:26px; }
+    .rev-pane { overflow:visible; }
+    .row { grid-template-columns:70px 1fr; grid-auto-flow:row; }
+    .row-rep, .row-status { grid-column:2; }
+    .row-act { grid-column:2; justify-self:start; }
+  }
+</style>
+
+<div class="shell">
+  <!-- ══════════════ RAIL: el flujo real del producto, en orden ══════════════ -->
+  <nav class="rail" aria-label="Flujo de la reunión">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">AP</div>
+      <div>
+        <div class="brand-name">ACTA PRO</div>
+        <div class="brand-sub">Fase 1 · MVP</div>
+      </div>
+    </div>
+    <p class="rail-label">Ciclo de la reunión</p>
+    <ul class="steps" id="nav">
+      <li><button class="step" data-view="agenda"   aria-current="true"><span class="step-n">01</span><span class="step-t">Agenda de reuniones<span class="step-wf">WF 01 · 03 · 04</span></span></button></li>
+      <li><button class="step" data-view="ficha"><span class="step-n">02</span><span class="step-t">Ficha previa<span class="step-wf">WF 02 · 03</span></span></button></li>
+      <li><button class="step" data-view="sala"><span class="step-n">03</span><span class="step-t">Sala de reunión<span class="step-wf">WF 05 · 06 · 07</span></span></button></li>
+      <li><button class="step" data-view="revision"><span class="step-n">04</span><span class="step-t">Revisión del acta<span class="step-wf">WF 08 · 09 · 10 · 11</span></span></button></li>
+      <li><button class="step" data-view="envio"><span class="step-n">05</span><span class="step-t">Envío y archivo<span class="step-wf">WF 14 · 15 · 16</span></span></button></li>
+    </ul>
+    <div class="rail-foot">
+      <div class="avatar">AP</div>
+      <div>
+        <div style="font-size:13px;font-weight:600">Ana Pérez</div>
+        <div class="src">DOCENTE · T-045</div>
+      </div>
+    </div>
+  </nav>
+
+  <div class="main">
+    <!-- ══════════════ Barra superior: contexto de la reunión activa ══════════════ -->
+    <header class="topbar">
+      <div class="ctx">
+        <span class="ctx-id">ACTA-2026-0001</span>
+        <span class="ctx-name">Juan Pérez López · 8.º EGB "B" · Rendimiento académico</span>
+      </div>
+      <div class="topbar-actions">
+        <span class="pill info" id="statusPill">Borrador en revisión</span>
+        <button class="btn btn-sm" id="themeBtn" aria-label="Cambiar tema">Tema</button>
+      </div>
+    </header>
+
+    <!-- ══════════════ 01 · AGENDA ══════════════ -->
+    <section class="view" id="v-agenda">
+      <div class="page-head">
+        <div>
+          <h1>Agenda de reuniones</h1>
+          <p class="page-sub">Viernes 14 de agosto de 2026 · sincronizado desde Google Calendar hace 4 min</p>
+        </div>
+        <span class="wf-tag" style="margin-left:auto">WF 01 Calendar Intake</span>
+      </div>
+
+      <div class="grid tiles">
+        <div class="card tile"><div class="tile-k">Reuniones hoy</div><div class="tile-v">3</div><div class="tile-n">1 en curso · 2 programadas</div></div>
+        <div class="card tile attn"><div class="tile-k">Actas por revisar</div><div class="tile-v">2</div><div class="tile-n">La más antigua: hace 2 días</div></div>
+        <div class="card tile"><div class="tile-k">Enviadas esta semana</div><div class="tile-v">7</div><div class="tile-n">7 confirmadas por el representante</div></div>
+        <div class="card tile attn"><div class="tile-k">Seguimientos vencidos</div><div class="tile-v">1</div><div class="tile-n">Mateo Chávez · vencía el 11 ago</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h2>Hoy</h2><span class="wf-tag" style="margin-left:auto">WF 04 Reminder activo</span></div>
+        <div class="rows">
+          <div class="row">
+            <div class="row-time">10:00</div>
+            <div><div class="row-student">Juan Pérez López</div><div class="row-course">8.º EGB "B" · Rendimiento académico</div></div>
+            <div class="row-rep">María López <span class="muted">· madre</span></div>
+            <div class="row-status"><span class="pill warn">Acta en borrador</span></div>
+            <div class="row-act"><button class="btn btn-sm btn-primary" data-goto="revision">Revisar acta</button></div>
+          </div>
+          <div class="row">
+            <div class="row-time">11:30</div>
+            <div><div class="row-student">Camila Andrade Ruiz</div><div class="row-course">8.º EGB "B" · Convivencia escolar</div></div>
+            <div class="row-rep">Jorge Andrade <span class="muted">· padre</span></div>
+            <div class="row-status"><span class="pill">En 42 min</span></div>
+            <div class="row-act"><button class="btn btn-sm" data-goto="ficha">Ficha previa</button></div>
+          </div>
+          <div class="row">
+            <div class="row-time">14:15</div>
+            <div><div class="row-student">Mateo Chávez Salinas</div><div class="row-course">9.º EGB "A" · Seguimiento de compromisos</div></div>
+            <div class="row-rep">Rosa Salinas <span class="muted">· madre</span></div>
+            <div class="row-status"><span class="pill crit">Datos incompletos</span></div>
+            <div class="row-act"><button class="btn btn-sm" data-goto="ficha">Completar</button></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="banner warn" style="margin-top:16px">
+        <span aria-hidden="true">⚠</span>
+        <div>
+          <strong>1 reunión requiere verificación manual</strong>
+          Runachay no devolvió el correo del representante de Mateo Chávez Salinas. El acta no se podrá enviar hasta completar el dato. <span class="src">data_status = manual_verification_required · WF 02</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════ 02 · FICHA PREVIA ══════════════ -->
+    <section class="view" id="v-ficha" hidden>
+      <div class="page-head">
+        <div>
+          <h1>Ficha previa</h1>
+          <p class="page-sub">Preparada automáticamente 30 minutos antes de la reunión</p>
+        </div>
+        <span class="wf-tag" style="margin-left:auto">WF 02 Runachay Lookup</span>
+      </div>
+
+      <div class="grid two">
+        <div class="grid" style="gap:14px">
+          <div class="card">
+            <div class="card-h"><h2>Estudiante</h2><span class="src" style="margin-left:auto">FUENTE: RUNACHAY</span></div>
+            <div class="card-b grid" style="gap:16px">
+              <div class="idcard">
+                <div class="avatar">JP</div>
+                <div>
+                  <div style="font-size:17px;font-weight:650">Juan Pérez López</div>
+                  <div class="muted" style="font-size:13px">8.º EGB paralelo "B" · <span class="meta">S-0231</span></div>
+                </div>
+              </div>
+              <div class="stats">
+                <div class="stat"><div class="stat-v">6,8</div><div class="stat-k">Promedio matemáticas</div></div>
+                <div class="stat"><div class="stat-v">91 %</div><div class="stat-k">Asistencia del parcial</div></div>
+                <div class="stat"><div class="stat-v">4</div><div class="stat-k">Atrasos en julio</div></div>
+              </div>
+              <div>
+                <div class="tile-k" style="margin-bottom:7px">Observaciones registradas</div>
+                <ul class="clean">
+                  <li>Dos tareas de álgebra no entregadas (2 y 9 de julio de 2026).</li>
+                  <li>Participación regular en clase; sin novedades de comportamiento.</li>
+                  <li>Sin derivaciones previas al Departamento de Consejería Estudiantil.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-h"><h2>Actas anteriores de este estudiante</h2><span class="wf-tag" style="margin-left:auto">WF 14 Drive</span></div>
+            <div class="card-b hist">
+              <div class="hist-i">
+                <span class="meta">2026-05-22</span>
+                <div style="flex:1"><div style="font-size:13.5px;font-weight:550">Seguimiento de compromisos</div><div class="src">ACTA-2026-0114 · firmada</div></div>
+                <button class="btn btn-sm">Abrir</button>
+              </div>
+              <div class="hist-i">
+                <span class="meta">2026-03-08</span>
+                <div style="flex:1"><div style="font-size:13.5px;font-weight:550">Rendimiento académico</div><div class="src">ACTA-2026-0047 · firmada</div></div>
+                <button class="btn btn-sm">Abrir</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid" style="gap:14px">
+          <div class="card">
+            <div class="card-h"><h2>Representante</h2></div>
+            <div class="card-b grid" style="gap:14px">
+              <div class="idcard">
+                <div class="avatar">ML</div>
+                <div>
+                  <div style="font-size:15px;font-weight:650">María López</div>
+                  <div class="muted" style="font-size:12.5px">Madre · representante legal</div>
+                </div>
+              </div>
+              <dl class="kv">
+                <dt>Correo</dt><dd>maria.lopez@email.com</dd>
+                <dt>Teléfono</dt><dd class="meta">+593 99 812 4470</dd>
+                <dt>Idioma</dt><dd>Español</dd>
+              </dl>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-h"><h2>Motivo y puntos a tratar</h2></div>
+            <div class="card-b">
+              <p style="margin:0 0 12px;font-size:13.5px;color:var(--ink-2)">Revisión del rendimiento académico en Matemáticas durante el primer parcial del período 2026-2027.</p>
+              <ul class="clean">
+                <li>Calificaciones del primer parcial</li>
+                <li>Tareas pendientes de entrega</li>
+                <li>Propuesta de plan de refuerzo</li>
+                <li>Acuerdos de acompañamiento en casa</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="banner ok">
+            <span aria-hidden="true">✓</span>
+            <div><strong>Datos verificados</strong> Estudiante, representante y docente confirmados en Runachay. <span class="src">data_status = verified</span></div>
+          </div>
+
+          <button class="btn btn-primary" style="width:100%" data-goto="sala">Iniciar reunión</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════ 03 · SALA DE REUNIÓN ══════════════ -->
+    <section class="view" id="v-sala" hidden>
+      <div class="page-head">
+        <div>
+          <h1>Reunión en curso</h1>
+          <p class="page-sub">El audio se envía en fragmentos de 30 s y se transcribe en segundo plano</p>
+        </div>
+        <span class="wf-tag" style="margin-left:auto">WF 05 start-meeting · WF 06 audio-chunk</span>
+      </div>
+
+      <div class="grid live">
+        <div class="grid" style="gap:14px">
+          <div class="card">
+            <div class="card-b">
+              <div class="rec">
+                <span class="rec-dot" aria-hidden="true"></span>
+                <div>
+                  <div class="rec-t" id="timer">00:12:34</div>
+                  <div class="src" style="margin-top:4px">GRABANDO · INICIO 10:02</div>
+                </div>
+              </div>
+              <canvas class="wave" id="wave" width="600" height="128" aria-label="Nivel de audio en tiempo real"></canvas>
+              <div class="chunk">
+                <span>Fragmento <b class="meta">25</b> enviado</span>
+                <span class="pill ok">Transcrito</span>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:12px">
+                <button class="btn" style="flex:1">Pausar</button>
+                <button class="btn" style="flex:1" id="markBtn">Marcar acuerdo</button>
+              </div>
+              <button class="btn btn-primary" style="width:100%;margin-top:8px" data-goto="revision">Finalizar y generar acta</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-h"><h2>Participantes presentes</h2></div>
+            <div class="card-b" style="padding-top:4px;padding-bottom:8px">
+              <div class="who"><div class="avatar">AP</div><div style="flex:1"><div class="who-n">Ana Pérez</div><div class="who-r">Docente</div></div><span class="pill ok">Presente</span></div>
+              <div class="who"><div class="avatar">ML</div><div style="flex:1"><div class="who-n">María López</div><div class="who-r">Madre · representante</div></div><span class="pill ok">Presente</span></div>
+              <div class="who"><div class="avatar">JP</div><div style="flex:1"><div class="who-n">Juan Pérez</div><div class="who-r">Estudiante</div></div><span class="pill ok">Presente</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="align-self:stretch">
+          <div class="card-h">
+            <h2>Transcripción en vivo</h2>
+            <span class="pill warn" style="margin-left:auto">Hablantes por confirmar</span>
+          </div>
+          <div class="feed" id="feed">
+            <div class="utt"><span class="utt-ts">10:02:18</span><div><div class="utt-sp">DOCENTE</div><div class="utt-x">Buenos días, gracias por venir. El objetivo de esta reunión es revisar el rendimiento académico de Juan en Matemáticas durante el primer parcial.</div></div></div>
+            <div class="utt"><span class="utt-ts">10:02:51</span><div><div class="utt-sp">REPRESENTANTE</div><div class="utt-x">Buenos días. La verdad es que no conocía las calificaciones del parcial hasta que recibí la citación.</div></div></div>
+            <div class="utt"><span class="utt-ts">10:03:34</span><div><div class="utt-sp">DOCENTE</div><div class="utt-x">El promedio actual es de 6,8. Hay además dos tareas de álgebra que no fueron entregadas, el 2 y el 9 de julio.</div></div></div>
+            <div class="utt"><span class="utt-ts">10:04:12</span><div><div class="utt-sp">ESTUDIANTE</div><div class="utt-x">Sí, esas dos no las entregué. Me confundí con las fechas del cuaderno.</div></div></div>
+            <div class="utt"><span class="utt-ts">10:05:07</span><div><div class="utt-sp">REPRESENTANTE</div><div class="utt-x">En casa no tenemos un horario fijo para las tareas, yo salgo del trabajo a las siete.</div></div></div>
+            <div class="utt mark"><span class="utt-ts">10:06:40</span><div><div class="utt-sp">DOCENTE · ACUERDO MARCADO</div><div class="utt-x">Propongo un plan de refuerzo semanal los miércoles de 14:00 a 15:00, empezando el 20 de agosto.</div></div></div>
+            <div class="utt"><span class="utt-ts">10:07:22</span><div><div class="utt-sp">REPRESENTANTE</div><div class="utt-x">De acuerdo. Me comprometo a revisar el cuaderno de tareas los domingos y a firmarlo.</div></div></div>
+            <div class="utt"><span class="utt-ts">10:08:03</span><div><div class="utt-sp">DOCENTE</div><div class="utt-x">Perfecto. Enviaré el reporte de avance el primer viernes de cada mes por el correo institucional.</div></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════ 04 · REVISIÓN DEL ACTA (pantalla central) ══════════════ -->
+    <section class="view" id="v-revision" hidden style="padding:0;overflow:hidden">
+      <div class="review">
+        <!-- Panel izquierdo: el documento -->
+        <div class="doc-pane">
+          <article class="doc" id="doc">
+            <h1>Acta de reunión con representante</h1>
+            <p class="doc-id">ACTA-2026-0001 · Unidad Educativa · Período 2026-2027</p>
+
+            <section>
+              <h2>1 · Datos generales</h2>
+              <dl class="gen">
+                <dt>Estudiante</dt><dd>Juan Pérez López</dd>
+                <dt>Curso</dt><dd>8.º EGB "B"</dd>
+                <dt>Representante</dt><dd>María López (madre)</dd>
+                <dt>Docente</dt><dd>Ana Pérez</dd>
+                <dt>Fecha</dt><dd>14 de agosto de 2026</dd>
+                <dt>Hora</dt><dd>10:02 – 10:41</dd>
+              </dl>
+            </section>
+
+            <section>
+              <h2>2 · Motivo de la reunión</h2>
+              <p>Revisión del rendimiento académico del estudiante en la asignatura de Matemáticas durante el primer parcial del período lectivo 2026-2027.</p>
+            </section>
+
+            <section>
+              <h2>3 · Antecedentes relevantes</h2>
+              <ul>
+                <li>Promedio de 6,8 en Matemáticas al cierre del primer parcial.</li>
+                <li><mark class="flag" data-level="YELLOW" data-id="f2">Juan siempre llega tarde y no muestra interés por la materia.</mark></li>
+                <li>Dos tareas de álgebra sin entregar, correspondientes al 2 y al 9 de julio de 2026.</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2>4 · Temas tratados</h2>
+              <ul>
+                <li>Calificaciones del primer parcial en Matemáticas.</li>
+                <li>Tareas pendientes de entrega.</li>
+                <li>Organización del tiempo de estudio en casa.</li>
+                <li>Propuesta de plan de refuerzo académico.</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2>5 · Intervenciones relevantes</h2>
+              <ul>
+                <li>La representante manifestó que desconocía las calificaciones del parcial hasta recibir la citación.</li>
+                <li>El estudiante reconoció no haber entregado dos tareas por confusión con las fechas.</li>
+                <li><mark class="flag" data-level="YELLOW" data-id="f3">Se nota que en casa no hay control sobre las tareas.</mark></li>
+              </ul>
+            </section>
+
+            <section>
+              <h2>6 · Situaciones analizadas</h2>
+              <ul>
+                <li><mark class="flag" data-level="RED" data-id="f1">La madre se muestra despreocupada por la situación académica de su hijo.</mark></li>
+                <li>Ausencia de un horario fijo de estudio en el hogar por razones laborales de la representante.</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2>7 · Acuerdos</h2>
+              <ul>
+                <li>Plan de refuerzo de Matemáticas los miércoles de 14:00 a 15:00, a partir del 20 de agosto de 2026.</li>
+                <li>Recuperación de las dos tareas pendientes hasta el 22 de agosto de 2026.</li>
+                <li>Reporte de avance el primer viernes de cada mes al correo de la representante.</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2>8 · Compromisos</h2>
+              <ul>
+                <li>La representante revisará y firmará el cuaderno de tareas cada domingo.</li>
+                <li>El estudiante asistirá puntualmente al refuerzo semanal.</li>
+                <li>La docente registrará la asistencia al refuerzo y notificará las inasistencias.</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2>9 · Responsables</h2>
+              <ul>
+                <li>Ana Pérez — docente de Matemáticas: ejecución y registro del plan de refuerzo.</li>
+                <li>María López — representante: acompañamiento y verificación semanal en casa.</li>
+                <li>Juan Pérez López — estudiante: asistencia y entrega de tareas.</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2>10 · Evidencias mencionadas</h2>
+              <ul>
+                <li>Registro de calificaciones del primer parcial (sistema Runachay).</li>
+                <li>Registro de entregas de la asignatura, julio de 2026.</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2>11 · Seguimiento</h2>
+              <p>Próxima reunión de seguimiento: <b>4 de septiembre de 2026</b>, para evaluar el avance del plan de refuerzo.</p>
+            </section>
+
+            <section>
+              <h2>12 · Observaciones</h2>
+              <p><mark class="flag" data-level="RED" data-id="f4">El estudiante presenta un cuadro de déficit de atención.</mark> La reunión se desarrolló en un clima de cooperación entre las partes.</p>
+            </section>
+
+            <section>
+              <h2>13 · Firmas</h2>
+              <div class="sig">
+                <div class="sig-l">Ana Pérez — Docente</div>
+                <div class="sig-l">María López — Representante</div>
+              </div>
+            </section>
+          </article>
+        </div>
+
+        <!-- Panel derecho: la revisión de lenguaje -->
+        <aside class="rev-pane">
+          <div class="rev-h">
+            <h2>Revisión de lenguaje</h2>
+            <p class="src" style="margin:4px 0 0">WF 09 · 15 FRAGMENTOS ANALIZADOS · LA IA SOLO SUGIERE</p>
+            <div class="tally">
+              <span class="pill ok"><b id="tGreen">11</b>&nbsp;adecuados</span>
+              <span class="pill warn"><b id="tYellow">2</b>&nbsp;revisar</span>
+              <span class="pill crit"><b id="tRed">2</b>&nbsp;no recomendados</span>
+            </div>
+          </div>
+
+          <div class="rev-list" id="findings"><!-- generado por JS --></div>
+
+          <div class="approve-bar">
+            <div class="gate" id="gate"></div>
+            <div class="approve-a">
+              <button class="btn btn-danger" id="btnReject">Rechazar</button>
+              <button class="btn btn-primary" id="btnApprove">Aprobar acta</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ══════════════ 05 · ENVÍO Y ARCHIVO ══════════════ -->
+    <section class="view" id="v-envio" hidden>
+      <div class="page-head">
+        <div>
+          <h1>Envío y archivo</h1>
+          <p class="page-sub">Nada sale del sistema hasta que confirmes esta pantalla</p>
+        </div>
+        <span class="wf-tag" style="margin-left:auto">WF 14 Drive · WF 15 Gmail · WF 16 Follow-up</span>
+      </div>
+
+      <div id="envioForm" class="grid two">
+        <div class="grid" style="gap:14px">
+          <div class="card">
+            <div class="card-h"><h2>Correo al representante</h2><span class="wf-tag" style="margin-left:auto">WF 15</span></div>
+            <div class="card-b">
+              <div class="mail">
+                <dl class="mail-h">
+                  <dt>Para</dt><dd>María López &lt;maria.lopez@email.com&gt;</dd>
+                  <dt>Asunto</dt><dd>Acta de reunión — Juan Pérez López — 14/08/2026</dd>
+                </dl>
+                <div class="mail-b">
+                  <p style="margin:0 0 10px">Estimada señora María López:</p>
+                  <p style="margin:0 0 10px">Adjunto el acta de la reunión mantenida el 14 de agosto de 2026 sobre el rendimiento académico de Juan en Matemáticas. En ella constan los acuerdos y compromisos establecidos por ambas partes.</p>
+                  <p style="margin:0 0 10px">La próxima reunión de seguimiento está prevista para el 4 de septiembre de 2026.</p>
+                  <p style="margin:0">Atentamente,<br>Ana Pérez — Docente de Matemáticas</p>
+                </div>
+                <div class="attach"><span aria-hidden="true">📄</span><span style="flex:1">ACTA-2026-0001.pdf</span><span class="meta">184 KB</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-h"><h2>Antes de enviar</h2></div>
+            <div class="card-b" style="padding-top:4px;padding-bottom:10px">
+              <div class="check"><span class="tick">✓</span><span style="flex:1">Acta aprobada por la docente</span><span class="meta">14 ago 10:52</span></div>
+              <div class="check"><span class="tick">✓</span><span style="flex:1">Firma digital de la docente</span><span class="meta">14 ago 10:53</span></div>
+              <div class="check"><span class="tick pending">○</span><span style="flex:1">Firma de la representante</span><span class="pill">Se solicita en el correo</span></div>
+              <div class="check"><span class="tick">✓</span><span style="flex:1">Correo del representante verificado</span><span class="src">RUNACHAY</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid" style="gap:14px">
+          <div class="card">
+            <div class="card-h"><h2>Ubicación en Google Drive</h2><span class="wf-tag" style="margin-left:auto">WF 14</span></div>
+            <div class="card-b">
+              <div class="tree">
+                <div>📁 ACTA PRO</div>
+                <div class="lvl">📁 Docentes</div>
+                <div class="lvl lvl">📁 Ana Pérez</div>
+                <div class="lvl lvl lvl">📁 Juan Pérez López</div>
+                <div class="lvl lvl lvl lvl">📁 2026-2027</div>
+                <div class="lvl lvl lvl lvl lvl leaf">📄 2026-08-14 - Rendimiento académico</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="banner crit">
+            <span aria-hidden="true">🔒</span>
+            <div>
+              <strong>La transcripción no se adjunta ni se archiva junto al acta</strong>
+              Se guarda cifrada en <span class="meta">ACTA PRO / Transcripciones (acceso restringido)</span> y no se envía al representante.
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-h"><h2>Seguimiento automático</h2><span class="wf-tag" style="margin-left:auto">WF 16</span></div>
+            <div class="card-b">
+              <p style="margin:0 0 6px;font-size:13.5px">Se creará un evento en Google Calendar:</p>
+              <p style="margin:0;font-size:13.5px;color:var(--ink-2)"><b>4 de septiembre de 2026, 10:00</b> — Seguimiento del plan de refuerzo · Juan Pérez López</p>
+            </div>
+          </div>
+
+          <button class="btn btn-primary" style="width:100%" id="btnSend">Enviar acta al representante</button>
+          <p class="src" style="text-align:center;margin:0">ESTA ACCIÓN ENVÍA UN CORREO REAL Y ARCHIVA EL DOCUMENTO</p>
+        </div>
+      </div>
+
+      <div id="envioDone" class="card sent" hidden>
+        <div class="sent-i" aria-hidden="true">✓</div>
+        <h2 style="margin:0 0 6px;font-size:19px">Acta enviada y archivada</h2>
+        <p class="muted" style="margin:0 0 20px;font-size:13.5px">ACTA-2026-0001 · enviada a maria.lopez@email.com · archivada en Google Drive</p>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+          <span class="pill ok">Correo entregado</span>
+          <span class="pill ok">Archivada en Drive</span>
+          <span class="pill ok">Seguimiento creado 04/09</span>
+          <span class="pill warn">Firma del representante pendiente</span>
+        </div>
+        <button class="btn" style="margin-top:24px" data-goto="agenda">Volver a la agenda</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- Navegación entre pantallas ---------- */
+  var views = { agenda:"v-agenda", ficha:"v-ficha", sala:"v-sala", revision:"v-revision", envio:"v-envio" };
+  var order = ["agenda","ficha","sala","revision","envio"];
+  var steps = Array.prototype.slice.call(document.querySelectorAll(".step"));
+
+  function show(name) {
+    Object.keys(views).forEach(function (k) {
+      document.getElementById(views[k]).hidden = (k !== name);
+    });
+    var idx = order.indexOf(name);
+    steps.forEach(function (b, i) {
+      b.setAttribute("aria-current", b.dataset.view === name ? "true" : "false");
+      b.classList.toggle("done", i < idx);
+    });
+    document.querySelector(".view:not([hidden])").scrollTop = 0;
+    window.scrollTo(0, 0);
+  }
+  steps.forEach(function (b) { b.addEventListener("click", function () { show(b.dataset.view); }); });
+  document.addEventListener("click", function (e) {
+    var t = e.target.closest("[data-goto]");
+    if (t) show(t.dataset.goto);
+  });
+
+  /* ---------- Tema ---------- */
+  document.getElementById("themeBtn").addEventListener("click", function () {
+    var r = document.documentElement;
+    var dark = r.getAttribute("data-theme") === "dark" ||
+      (!r.getAttribute("data-theme") && matchMedia("(prefers-color-scheme: dark)").matches);
+    r.setAttribute("data-theme", dark ? "light" : "dark");
+  });
+
+  /* ---------- Onda de audio (pantalla 03) ---------- */
+  var cv = document.getElementById("wave"), cx = cv.getContext("2d");
+  var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var bars = 64, seed = [];
+  for (var i = 0; i < bars; i++) seed.push(Math.random());
+
+  function drawWave(t) {
+    var w = cv.width, h = cv.height, gap = 3, bw = (w - gap * (bars - 1)) / bars;
+    var accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+    cx.clearRect(0, 0, w, h);
+    cx.fillStyle = accent;
+    for (var i = 0; i < bars; i++) {
+      var v = reduce ? seed[i] : (Math.sin(t / 260 + i * 0.55) * 0.5 + 0.5) * seed[i];
+      var bh = Math.max(3, v * (h - 12));
+      cx.globalAlpha = 0.35 + v * 0.6;
+      cx.fillRect(i * (bw + gap), (h - bh) / 2, bw, bh);
+    }
+    cx.globalAlpha = 1;
+  }
+  if (reduce) { drawWave(0); }
+  else { (function loop(t) { if (!document.getElementById("v-sala").hidden) drawWave(t); requestAnimationFrame(loop); })(0); }
+
+  /* ---------- Cronómetro (pantalla 03) ---------- */
+  var secs = 754, timerEl = document.getElementById("timer");
+  if (!reduce) setInterval(function () {
+    secs++;
+    var h = String(Math.floor(secs / 3600)).padStart(2, "0");
+    var m = String(Math.floor(secs / 60) % 60).padStart(2, "0");
+    var s = String(secs % 60).padStart(2, "0");
+    timerEl.textContent = h + ":" + m + ":" + s;
+  }, 1000);
+
+  document.getElementById("markBtn").addEventListener("click", function () {
+    var feed = document.getElementById("feed");
+    var d = document.createElement("div");
+    d.className = "utt mark";
+    d.innerHTML = '<span class="utt-ts">' + timerEl.textContent.slice(3) +
+      '</span><div><div class="utt-sp">MARCA MANUAL DE LA DOCENTE</div>' +
+      '<div class="utt-x">Punto marcado para revisar al generar el acta.</div></div>';
+    feed.appendChild(d);
+    feed.scrollTop = feed.scrollHeight;
+  });
+
+  /* ---------- Revisión de lenguaje (pantalla 04) — WF 09 ---------- */
+  var findings = [
+    { id:"f1", level:"RED", loc:"§6 SITUACIONES ANALIZADAS",
+      fragment:"La madre se muestra despreocupada por la situación académica de su hijo.",
+      reason:"Juicio de valor sobre la representante. Atribuye una actitud que no consta en la transcripción y expone a la docente ante un reclamo formal.",
+      suggested:"La representante indicó que desconocía las calificaciones del primer parcial hasta recibir la citación." },
+    { id:"f4", level:"RED", loc:"§12 OBSERVACIONES",
+      fragment:"El estudiante presenta un cuadro de déficit de atención.",
+      reason:"Diagnóstico clínico. El acta no puede emitir diagnósticos: corresponde al Departamento de Consejería Estudiantil.",
+      suggested:"Se sugiere derivar el caso al Departamento de Consejería Estudiantil para una valoración especializada." },
+    { id:"f2", level:"YELLOW", loc:"§3 ANTECEDENTES",
+      fragment:"Juan siempre llega tarde y no muestra interés por la materia.",
+      reason:"Generalización absoluta («siempre») y atribución de intención no verificable. Conviene sustituirla por el dato registrado.",
+      suggested:"Se registran 4 atrasos durante el mes de julio de 2026 según el sistema Runachay." },
+    { id:"f3", level:"YELLOW", loc:"§5 INTERVENCIONES",
+      fragment:"Se nota que en casa no hay control sobre las tareas.",
+      reason:"Afirmación sin evidencia sobre el entorno familiar e información sensible innecesaria para el acta.",
+      suggested:"La representante señaló que no dispone de un horario fijo para acompañar la realización de tareas." }
+  ];
+
+  var listEl = document.getElementById("findings");
+  var gateEl = document.getElementById("gate");
+  var approveEl = document.getElementById("btnApprove");
+  var pillEl = document.getElementById("statusPill");
+  var state = {};
+  findings.forEach(function (f) { state[f.id] = "open"; });
+
+  var LABEL = { RED:"No recomendado", YELLOW:"Revisar" };
+  var CLS = { RED:"crit", YELLOW:"warn" };
+
+  function render() {
+    listEl.innerHTML = "";
+    findings.forEach(function (f) {
+      var st = state[f.id];
+      var el = document.createElement("article");
+      el.className = "find" + (st === "open" ? "" : " resolved");
+      el.dataset.level = f.level;
+      el.dataset.id = f.id;
+
+      var actions = st === "open"
+        ? '<div class="find-a"><button class="btn btn-sm btn-primary" data-act="apply">Aplicar sugerencia</button>' +
+          '<button class="btn btn-sm" data-act="keep">Mantener original</button></div>'
+        : '<p class="resolved-note">✓ ' + (st === "applied" ? "Sugerencia aplicada" : "Original mantenido por la docente") + '</p>';
+
+      el.innerHTML =
+        '<div class="find-h"><span class="pill ' + CLS[f.level] + '">' + LABEL[f.level] + '</span>' +
+        '<span class="find-loc">' + f.loc + '</span></div>' +
+        '<p class="quote">«' + f.fragment + '»</p>' +
+        '<p class="why">' + f.reason + '</p>' +
+        '<div class="sugg"><div class="sugg-k">Redacción sugerida</div><div class="sugg-x">' + f.suggested + '</div></div>' +
+        actions;
+      listEl.appendChild(el);
+    });
+    updateGate();
+  }
+
+  function updateGate() {
+    var openRed = findings.filter(function (f) { return f.level === "RED" && state[f.id] === "open"; }).length;
+    var openAll = findings.filter(function (f) { return state[f.id] === "open"; }).length;
+
+    document.getElementById("tRed").textContent =
+      findings.filter(function (f) { return f.level === "RED" && state[f.id] === "open"; }).length;
+    document.getElementById("tYellow").textContent =
+      findings.filter(function (f) { return f.level === "YELLOW" && state[f.id] === "open"; }).length;
+    document.getElementById("tGreen").textContent =
+      11 + findings.filter(function (f) { return state[f.id] !== "open"; }).length;
+
+    if (openRed > 0) {
+      gateEl.className = "gate banner crit";
+      gateEl.innerHTML = "<div><strong>" + openRed + " fragmento(s) no recomendado(s) sin resolver.</strong>" +
+        " Resuélvelos antes de aprobar: quedan registrados en el acta tal como están.</div>";
+      approveEl.disabled = true;
+    } else if (openAll > 0) {
+      gateEl.className = "gate banner warn";
+      gateEl.innerHTML = "<div><strong>" + openAll + " fragmento(s) por revisar.</strong>" +
+        " Puedes aprobar el acta, pero la decisión queda registrada en el log de auditoría.</div>";
+      approveEl.disabled = false;
+    } else {
+      gateEl.className = "gate banner ok";
+      gateEl.innerHTML = "<div><strong>Revisión completa.</strong> Todos los fragmentos señalados fueron resueltos por la docente.</div>";
+      approveEl.disabled = false;
+    }
+  }
+
+  listEl.addEventListener("click", function (e) {
+    var card = e.target.closest(".find");
+    if (!card) return;
+    var f = findings.filter(function (x) { return x.id === card.dataset.id; })[0];
+    var mk = document.querySelector('mark.flag[data-id="' + f.id + '"]');
+    var btn = e.target.closest("[data-act]");
+
+    if (btn) {
+      if (btn.dataset.act === "apply") {
+        state[f.id] = "applied";
+        mk.textContent = f.suggested;
+        mk.classList.add("applied");
+      } else {
+        state[f.id] = "kept";
+        mk.classList.add("kept");
+      }
+      mk.removeAttribute("data-level");
+      render();
+      return;
+    }
+    // Clic en la tarjeta: resaltar el fragmento en el documento
+    selectFlag(f.id);
+  });
+
+  function selectFlag(id) {
+    document.querySelectorAll("mark.flag").forEach(function (m) { m.classList.remove("sel"); });
+    document.querySelectorAll(".find").forEach(function (c) { c.classList.toggle("sel", c.dataset.id === id); });
+    var mk = document.querySelector('mark.flag[data-id="' + id + '"]');
+    if (mk) { mk.classList.add("sel"); mk.scrollIntoView({ block:"center", behavior: reduce ? "auto" : "smooth" }); }
+  }
+
+  document.getElementById("doc").addEventListener("click", function (e) {
+    var mk = e.target.closest("mark.flag");
+    if (!mk) return;
+    selectFlag(mk.dataset.id);
+    var card = document.querySelector('.find[data-id="' + mk.dataset.id + '"]');
+    if (card) card.scrollIntoView({ block:"center", behavior: reduce ? "auto" : "smooth" });
+  });
+
+  approveEl.addEventListener("click", function () {
+    pillEl.className = "pill ok";
+    pillEl.textContent = "Aprobada por la docente";
+    show("envio");
+  });
+  document.getElementById("btnReject").addEventListener("click", function () {
+    pillEl.className = "pill crit";
+    pillEl.textContent = "Rechazada · vuelve a borrador";
+    gateEl.className = "gate banner crit";
+    gateEl.innerHTML = "<div><strong>Acta rechazada.</strong> Se envió al workflow 11 con <span class=\"meta\">decision = reject</span>. El borrador vuelve a generarse.</div>";
+  });
+
+  render();
+
+  /* ---------- Envío (pantalla 05) ---------- */
+  document.getElementById("btnSend").addEventListener("click", function () {
+    document.getElementById("envioForm").hidden = true;
+    document.getElementById("envioDone").hidden = false;
+    pillEl.className = "pill ok";
+    pillEl.textContent = "Enviada al representante";
+  });
+})();
+</script>
