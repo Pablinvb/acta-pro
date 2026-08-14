@@ -1,0 +1,134 @@
+{
+  "name": "ACTA PRO | 07 - Speaker Identification",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WORKFLOW 07 — Speaker Identification\n\nRecibe un segmento de transcripción (workflow 06) e intenta separar las intervenciones por hablante. Si el servicio de Speech-to-Text no ofrece diarización directamente, este workflow deja un nodo placeholder claramente marcado y NO usa un LLM para inventar la identificación del hablante: si no hay evidencia suficiente, se marca speaker = 'unidentified'.\n\nCONFIGURAR: servicio de speaker diarization (no incluido en el MVP; se deja el placeholder listo para Fase 3).",
+        "height": 260,
+        "width": 580,
+        "color": 5
+      },
+      "id": "lyfuqnno1z6hvqk1",
+      "name": "Nota - c4ke",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "meeting_id"
+            },
+            {
+              "name": "timestamp"
+            },
+            {
+              "name": "text"
+            },
+            {
+              "name": "expected_participants"
+            }
+          ]
+        }
+      },
+      "id": "9mbp5e02g650bjc2",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        180
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "vvw8ocisk33iw7jl",
+      "name": "CONFIGURAR - Servicio de Speaker Diarization",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        260,
+        180
+      ],
+      "notes": "Placeholder obligatorio: aquí debe conectarse un servicio real de speaker diarization (por audio, no por texto). Ejemplos compatibles con n8n vía HTTP Request: AssemblyAI, Deepgram, pyannote. Mientras no esté configurado, este workflow no intenta adivinar el hablante."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Regla del proyecto: nunca atribuir una frase a una persona sin\n// evidencia suficiente. Si el nodo de diarizacion de arriba no esta\n// configurado (o no devuelve una etiqueta de hablante confiable),\n// se marca speaker = 'unidentified'.\nconst diarization = items[0].json.speaker_label || null;\nconst trigger = $('Execute Workflow Trigger').item.json;\nreturn [{ json: {\n  meeting_id: trigger.meeting_id,\n  timestamp: trigger.timestamp,\n  text: trigger.text,\n  speaker: diarization || 'unidentified',\n  requires_manual_labeling: !diarization,\n}}];"
+      },
+      "id": "wjwqzdyaawtgclmd",
+      "name": "Construir salida sin inventar hablante",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        520,
+        180
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "qkm2p9111ba8um2t",
+      "name": "CONFIGURAR - Guardar segmento etiquetado (Postgres/Sheets)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        780,
+        180
+      ]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - Servicio de Speaker Diarization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIGURAR - Servicio de Speaker Diarization": {
+      "main": [
+        [
+          {
+            "node": "Construir salida sin inventar hablante",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construir salida sin inventar hablante": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - Guardar segmento etiquetado (Postgres/Sheets)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "acta-pro-mvp"
+  },
+  "id": "37khxeb2cysigkbuvjvk",
+  "tags": [
+    {
+      "name": "ACTA PRO"
+    }
+  ]
+}
