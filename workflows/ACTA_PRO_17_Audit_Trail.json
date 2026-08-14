@@ -1,0 +1,140 @@
+{
+  "name": "ACTA PRO | 17 - Audit Trail",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WORKFLOW 17 — Audit Trail\n\nRegistro central de auditoría. Se invoca (Execute Workflow) desde los demás workflows críticos en cada evento importante: creación de reunión, modificación, transcripción, generación, revisión, aprobación, firma, almacenamiento, envío y seguimiento. Cada registro guarda meeting_id, user_id, action, timestamp y document_version.",
+        "height": 240,
+        "width": 560,
+        "color": 5
+      },
+      "id": "p8cbppsqgtebg2ck",
+      "name": "Nota - 6nnj",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "meeting_id"
+            },
+            {
+              "name": "user_id"
+            },
+            {
+              "name": "action"
+            },
+            {
+              "name": "document_version"
+            }
+          ]
+        }
+      },
+      "id": "zi1iwjizvje0gajf",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "meeting_id",
+              "value": "={{ $json.meeting_id }}",
+              "type": "string"
+            },
+            {
+              "name": "user_id",
+              "value": "={{ $json.user_id }}",
+              "type": "string"
+            },
+            {
+              "name": "action",
+              "value": "={{ $json.action }}",
+              "type": "string"
+            },
+            {
+              "name": "document_version",
+              "value": "={{ $json.document_version }}",
+              "type": "string"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "knewqs1i8q23v9x4",
+      "name": "Normalizar registro de auditoría",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        260,
+        180
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "birfovlodh3mzq39",
+      "name": "CONFIGURAR - Guardar en Audit Log (Postgres/Sheets)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        520,
+        180
+      ],
+      "notes": "Placeholder: INSERT INTO audit_logs (meeting_id, user_id, action, timestamp, document_version) VALUES (...)."
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalizar registro de auditoría",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar registro de auditoría": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURAR - Guardar en Audit Log (Postgres/Sheets)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "acta-pro-mvp"
+  },
+  "id": "7ql4frfvhq06boaj9kus",
+  "tags": [
+    {
+      "name": "ACTA PRO"
+    }
+  ]
+}
