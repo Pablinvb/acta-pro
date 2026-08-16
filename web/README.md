@@ -146,6 +146,26 @@ adaptador en `services/transcription/`. Nada más del sistema se entera.
 | `deepgram` (por defecto) | Sí |
 | `openai` | No |
 
+### Comprobar Deepgram con una grabación real
+
+```bash
+npm --prefix web run verify:deepgram -- ruta/al/audio.m4a
+```
+
+Manda el archivo a Deepgram e imprime qué devolvió: cuántas intervenciones,
+cuántas voces separó, la confianza de cada una y —lo más útil— las muestras que
+vería la docente para poner los nombres.
+
+Existe porque la única pregunta que no se puede responder leyendo código es si
+la separación funciona con **español ecuatoriano, varias personas y ruido de
+aula**, y hacer una reunión entera en la aplicación para averiguarlo es un ciclo
+demasiado lento. Sirve cualquier nota de voz del iPad; lo útil es que hablen al
+menos dos personas y que alguna interrumpa a otra.
+
+> El vocabulario de nombres propios usa `keywords` en nova-2 y `keyterm` en
+> nova-3. Pasar el que no toca **no da error**: Deepgram lo ignora en silencio y
+> los nombres siguen saliendo mal. El proveedor elige según el modelo.
+
 Conviene tener clara una distinción que la publicidad de los proveedores mezcla:
 
 > **Diarización ≠ identificación.** Deepgram sabe que hablaron tres personas

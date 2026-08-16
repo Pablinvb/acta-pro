@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "verify:db": "node --conditions=react-server db/verify.mts"
+    "verify:db": "node --conditions=react-server db/verify.mts",
+    "verify:deepgram": "node --conditions=react-server scripts/verify-deepgram.mts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1111.0",

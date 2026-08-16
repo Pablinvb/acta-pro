@@ -58,9 +58,16 @@ export const deepgramProvider: TranscriptionProvider = {
       smart_format: 'true',
     });
 
-    // Los nombres propios del centro llegan mal si no se le avisan.
+    /*
+     * Los nombres propios llegan destrozados si no se avisan, pero el parámetro
+     * no es el mismo en toda la familia de modelos: `keyterm` solo existe en
+     * nova-3, y en nova-2 y anteriores hay que usar `keywords`. Pasar el que no
+     * toca no da error: Deepgram lo ignora en silencio y los nombres siguen
+     * saliendo mal.
+     */
+    const vocabularyParam = deepgramModel.startsWith('nova-3') ? 'keyterm' : 'keywords';
     for (const term of options?.vocabulary ?? []) {
-      params.append('keyterm', term);
+      params.append(vocabularyParam, term);
     }
 
     const controller = new AbortController();
