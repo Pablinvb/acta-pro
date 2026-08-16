@@ -1,88 +1,91 @@
 # ACTA PRO
 
-**Agente inteligente para automatizar la gestión de reuniones entre docentes y representantes de estudiantes.**
+**Aplicación para que los docentes documenten sus reuniones con representantes
+sin que el acta se vuelva en su contra.**
 
-ACTA PRO automatiza el ciclo completo de una reunión escolar: desde la detección de la cita en Google Calendar, pasando por la transcripción y el análisis de la conversación con IA, hasta la generación del acta, la aprobación docente, el almacenamiento y el envío al representante.
+ACTA PRO cubre el ciclo completo de una reunión escolar: detecta la cita en
+Google Calendar, prepara la ficha del estudiante, graba y transcribe la reunión,
+analiza la conversación con IA, redacta el acta, señala la redacción que podría
+comprometer al docente, recoge las firmas de ambas partes, archiva el documento
+y lo envía al representante.
 
+## Qué lo hace distinto
+
+La parte interesante no es la automatización, es **la protección documental**.
+
+Un acta que dice «la madre se muestra despreocupada» es un juicio de valor que
+puede volverse contra quien la firmó. ACTA PRO revisa cada fragmento antes de
+firmar, lo clasifica como adecuado / a revisar / no recomendado, y propone una
+redacción objetiva. **La IA solo sugiere**: nunca cambia una palabra sin decisión
+explícita de la docente, y el sistema se niega a aprobar un acta que conserve
+fragmentos no recomendados sin resolver.
+
+## Arrancar
+
+```bash
+npm --prefix web install
+npm --prefix web run dev
 ```
-Runachay → Google Calendar → preparación del acta → reunión → transcripción →
-identificación de participantes → análisis con IA → generación del acta →
-revisión docente → firmas → almacenamiento → clasificación por estudiante →
-envío al representante → seguimiento
-```
 
-## Estado del proyecto
+http://localhost:3000 · usuario `T-045`, contraseña `acta-pro-demo`.
 
-🚧 **MVP — Fase 1.** Este repositorio contiene los workflows de n8n de la cadena mínima priorizada:
+Sin configurar nada arranca en **modo demostración**: se puede recorrer el ciclo
+completo con datos ficticios, sin Google, sin OpenAI, sin Runachay y sin base de
+datos.
 
-```
-Google Calendar → datos de reunión → Webhook → transcripción → IA →
-borrador del acta → aprobación docente → Google Drive → Gmail
-```
-
-Los workflows se entregan **desactivados** (`active: false`) hasta validar credenciales y datos de prueba.
-
-## Contenido del repositorio
+## Estructura
 
 ```
 acta-pro/
-├── workflows/                          # Workflows n8n (JSON importable)
-│   ├── ACTA_PRO_01_Calendar_Meeting_Intake.json
-│   ├── ACTA_PRO_02_Runachay_Student_Lookup.json
-│   ├── ACTA_PRO_05_Start_Meeting.json
-│   ├── ACTA_PRO_06_Meeting_Transcription.json
-│   ├── ACTA_PRO_08_Meeting_Intelligence.json
-│   ├── ACTA_PRO_09_Language_Documentation_Review.json
-│   ├── ACTA_PRO_10_Generate_Meeting_Minutes.json
-│   ├── ACTA_PRO_11_Teacher_Approval.json
-│   ├── ACTA_PRO_14_Archive_Meeting.json
-│   ├── ACTA_PRO_15_Send_Meeting_Record.json
-│   └── ACTA_PRO_Error_Handler.json
-├── web/                                # Web app (Next.js) que consume los workflows
-├── design/                             # Prototipo de interfaz y notas de diseño
+├── web/                    Aplicación completa (interfaz + servicios + API)
+│   ├── src/app/            Pantallas y rutas de la API
+│   ├── src/services/       Un servicio por dominio del proceso
+│   ├── src/repositories/   Persistencia
+│   ├── db/schema.sql       Esquema de la base de datos
+│   └── README.md           Documentación técnica y configuración
+├── design/                 Prototipo de interfaz y decisiones de diseño
 └── docs/
-    └── ARQUITECTURA.md                 # Arquitectura completa del sistema (MVP)
+    ├── ARQUITECTURA.md     Arquitectura del sistema
+    ├── DATOS_DE_PRUEBA.md  Datos ficticios
+    └── legacy-n8n/         Los workflows originales, como referencia histórica
 ```
-
-## Interfaz
-
-La web app vive en [`web/`](web/) y cubre las cinco pantallas de la Fase 1:
-agenda, ficha previa, sala de reunión, revisión del acta y envío. Arranca en modo
-demostración sin necesidad de n8n:
-
-```bash
-npm --prefix web install && npm --prefix web run dev
-```
-
-El diseño y el prototipo clickeable están en [`design/`](design/).
 
 ## Arquitectura
 
-El sistema se organiza en 17 workflows modulares + un manejador de errores central. El detalle completo (roles, campos de datos, reglas de la IA, seguridad, fases del MVP) está en [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md).
+```
+Interfaz (React, iPad)  →  API propia  →  Calendar · Drive · Gmail · OpenAI · Runachay
+                                       →  Base de datos
+```
 
-Integraciones externas contempladas: **Runachay** (plataforma institucional del colegio), **Google Calendar**, **Google Drive**, **Gmail**, un modelo de lenguaje (LLM) para análisis de reuniones y un servicio de Speech-to-Text.
+Una sola aplicación, un solo despliegue, un solo dueño de los datos. El detalle
+está en [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md).
 
-## Cómo importar los workflows
+> El sistema nació como 17 workflows de n8n y se consolidó en servicios propios.
+> El motivo y la correspondencia workflow → servicio están en
+> [`docs/legacy-n8n/`](docs/legacy-n8n/).
 
-1. En tu instancia de n8n: `Workflows → Import from File`.
-2. Selecciona cada `.json` de la carpeta `workflows/`.
-3. Cada workflow incluye **Sticky Notes** explicando su función y qué credenciales configurar.
-4. Revisa la sección "Credenciales necesarias" en `docs/ARQUITECTURA.md` antes de activarlos.
+## Estado
 
-## Seguridad y privacidad
+Interfaz, servicios y persistencia en memoria funcionan de principio a fin. Lo
+que falta antes de usarlo con reuniones reales:
 
-- Ningún nodo trae credenciales, tokens ni endpoints reales embebidos — todos los servicios externos están marcados como `CONFIGURAR - [servicio]`.
-- La transcripción completa se almacena separada del acta final, en una ubicación con acceso restringido.
-- El manejo de errores nunca elimina una reunión ni datos ya procesados; solo marca `processing_status = retry_required`.
-- Principio de privacidad por diseño: minimización de datos, autenticación vía n8n Credentials, control de acceso y logs de auditoría.
+- Adaptador de PostgreSQL (el esquema ya está definido).
+- Verificar las integraciones de Google y OpenAI contra las APIs reales.
+- Almacén de usuarios: hoy la autenticación usa una contraseña compartida.
+- El esquema de respuesta de Runachay sigue sin conocerse.
 
-## Roadmap
+## Privacidad
 
-- **Fase 1** ✅ (este repo): Calendar → Webhook → transcripción → IA → borrador → aprobación docente → Drive → Gmail.
-- **Fase 2**: integración real con la API de Runachay.
-- **Fase 3**: diarización avanzada de hablantes.
-- **Fase 4**: firma digital avanzada.
-- **Fase 5**: repositorio institucional y panel administrativo + frontend web/móvil ACTA PRO.
+La aplicación trata datos personales de menores.
+
+- Las credenciales viven solo en el servidor; ninguna variable se expone al
+  navegador.
+- La transcripción se guarda separada del acta, con permisos propios, y nunca se
+  adjunta a un correo.
+- Ante un fallo de integración no se elimina ninguna reunión ni información ya
+  procesada.
+- Todo evento crítico queda registrado en un log de auditoría que solo admite
+  inserciones.
 
 ## Licencia
 

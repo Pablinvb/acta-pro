@@ -103,7 +103,10 @@ export function SalaClient({
       );
 
       try {
-        const res = await fetch('/api/n8n/audio-chunk', { method: 'POST', body: form });
+        const res = await fetch(`/api/reuniones/${encodeURIComponent(meeting.meeting_id)}/audio`, {
+          method: 'POST',
+          body: form,
+        });
         setChunks((c) =>
           c.map((x) => (x.index === index ? { ...x, state: res.ok ? 'sent' : 'failed' } : x)),
         );
@@ -134,13 +137,10 @@ export function SalaClient({
 
     // El WF 05 marca la reunión como in_progress antes de grabar nada.
     try {
-      await fetch('/api/n8n/start-meeting', {
+      await fetch(`/api/reuniones/${encodeURIComponent(meeting.meeting_id)}/iniciar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          meeting_id: meeting.meeting_id,
-          teacher_id: meeting.teacher_id,
-          student_id: meeting.student_id,
           participants: meeting.participants.map((p) => ({
             role: p.role,
             name: p.name,
@@ -149,7 +149,8 @@ export function SalaClient({
         }),
       });
     } catch {
-      // Si el WF 05 no responde no bloqueamos la reunión: lo importante es grabar.
+      // Si el registro de inicio falla no bloqueamos la reunión: lo importante
+      // es grabar; el estado se puede reconciliar después.
     }
 
     try {

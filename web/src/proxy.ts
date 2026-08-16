@@ -3,8 +3,8 @@ import { sessionCookie, verifySession } from '@/lib/auth';
 
 /**
  * Puerta de entrada. Todo lo que no sea la pantalla de acceso exige sesión
- * válida, incluidas las rutas de `/api/n8n/*`: sin esto, cualquiera podría
- * disparar los webhooks de n8n desde fuera de la aplicación.
+ * válida, incluidas las rutas de `/api/*`: sin esto, cualquiera podría operar
+ * sobre las reuniones desde fuera de la aplicación.
  *
  * Se llama `proxy` y no `middleware` porque Next 16 renombró la convención;
  * corre en el runtime Edge, así que todo lo que use debe funcionar allí — por

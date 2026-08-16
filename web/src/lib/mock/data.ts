@@ -397,6 +397,7 @@ export const followUp: FollowUp = {
 export const previousDocuments: ArchivedDocument[] = [
   {
     meeting_id: 'ACTA-2026-0114',
+    student_id: 'S-0231',
     document_code: 'ACTA-2026-JUAN-PEREZ-0114',
     meeting_type: 'Seguimiento de compromisos',
     date: '2026-05-22',
@@ -405,6 +406,7 @@ export const previousDocuments: ArchivedDocument[] = [
   },
   {
     meeting_id: 'ACTA-2026-0047',
+    student_id: 'S-0231',
     document_code: 'ACTA-2026-JUAN-PEREZ-0047',
     meeting_type: 'Rendimiento académico',
     date: '2026-03-08',

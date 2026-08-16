@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { dataSource } from '@/lib/env';
+import { isDemo } from '@/services/config';
 import type { Meeting } from '@/lib/types';
 import { Rail } from './Rail';
 import { ThemeToggle } from './ThemeToggle';
@@ -43,7 +43,7 @@ export function AppShell({
               {meeting.student_name} · {meeting.course} · {meeting.meeting_type}
             </p>
             <div className="ml-auto flex items-center gap-2">
-              {dataSource === 'mock' && <Pill tone="warn">Datos de demostración</Pill>}
+              {isDemo && <Pill tone="warn">Datos de demostración</Pill>}
               <Pill tone={status.tone}>{status.label}</Pill>
               <ThemeToggle />
             </div>

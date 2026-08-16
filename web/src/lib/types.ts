@@ -114,6 +114,14 @@ export interface TranscriptSegment {
 export interface AiAnalysis {
   meeting_reason: string;
   topics: string[];
+  /**
+   * Antecedentes previos a la reunión (sección 3 del acta).
+   *
+   * Campo añadido en la migración a servicios propios. El workflow 10 original
+   * imprimía `situations_discussed` tanto en la sección 3 como en la 6, con lo
+   * que el acta repetía el mismo contenido en dos apartados distintos.
+   */
+  background: string[];
   situations_discussed: string[];
   teacher_actions: string[];
   representative_concerns: string[];
@@ -220,6 +228,7 @@ export interface FollowUp {
 
 export interface ArchivedDocument {
   meeting_id: string;
+  student_id: string;
   document_code: string;
   meeting_type: string;
   date: string;

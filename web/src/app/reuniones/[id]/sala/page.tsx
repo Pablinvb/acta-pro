@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { PageHead } from '@/components/ui';
-import { dataSource } from '@/lib/env';
+import { isDemo } from '@/services/config';
 import { findMeeting, transcript } from '@/lib/mock/data';
 import { requireSession } from '@/lib/session';
 import { SalaClient } from './SalaClient';
@@ -29,7 +29,7 @@ export default async function SalaPage({ params }: { params: Promise<{ id: strin
         <SalaClient
           meeting={meeting}
           demoTranscript={transcript}
-          isMock={dataSource === 'mock'}
+          isMock={isDemo}
         />
       </div>
     </AppShell>

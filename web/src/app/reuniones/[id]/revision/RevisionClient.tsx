@@ -123,36 +123,24 @@ export function RevisionClient({
     cardRefs.current[id]?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }, []);
 
-  /** Reconstruye el acta con las sugerencias que la docente aceptó. */
-  const buildEditedContent = useCallback(() => {
-    const lines: string[] = [];
-    for (const section of minutes.sections) {
-      lines.push(`${section.number}. ${section.title}`);
-      section.fields?.forEach((f) => lines.push(`${f.label}: ${f.value}`));
-      section.paragraphs?.forEach((p) => lines.push(p));
-      section.items?.forEach((item) => {
-        const f = byFragment.get(item);
-        lines.push(`- ${f?.resolution === 'applied' ? f.suggested_text : item}`);
-      });
-      lines.push('');
-    }
-    return lines.join('\n');
-  }, [minutes.sections, byFragment]);
-
   const send = useCallback(
     async (decision: 'approve' | 'reject') => {
       setSubmitting(decision);
       setFeedback(null);
       try {
-        const res = await fetch('/api/n8n/teacher-review', {
+        /*
+         * Se envían las decisiones, no el acta reescrita. El servicio aplica
+         * las sugerencias aceptadas sobre el acta que él mismo guardó, así que
+         * lo aprobado y lo mostrado son el mismo documento y el cliente no
+         * puede colar un texto que nunca pasó por la revisión de lenguaje.
+         */
+        const res = await fetch(`/api/reuniones/${encodeURIComponent(minutes.meeting_id)}/revision`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            meeting_id: minutes.meeting_id,
             decision,
-            ...(decision === 'approve' && applied.length > 0
-              ? { edited_content: buildEditedContent() }
-              : {}),
+            appliedFragments: applied.map((f) => f.fragment),
+            keptFragments: findings.filter((f) => f.resolution === 'kept').map((f) => f.fragment),
           }),
         });
         const body = await res.json();
@@ -186,7 +174,7 @@ export function RevisionClient({
         setSubmitting(null);
       }
     },
-    [minutes.meeting_id, applied.length, buildEditedContent, router, toast, clearDraft],
+    [minutes.meeting_id, applied, findings, router, toast, clearDraft],
   );
 
   /* ── Un punto del acta, resaltado si el WF 09 lo marcó ── */

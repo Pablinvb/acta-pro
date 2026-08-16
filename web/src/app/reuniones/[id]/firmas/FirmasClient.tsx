@@ -41,11 +41,10 @@ export function FirmasClient({
   async function submit() {
     setSending(true);
     try {
-      const res = await fetch('/api/n8n/signatures', {
+      const res = await fetch(`/api/reuniones/${encodeURIComponent(meeting.meeting_id)}/firmas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          meeting_id: meeting.meeting_id,
           teacher_signature: teacherSig,
           representative_signature: repSig,
           document_version: 1,
