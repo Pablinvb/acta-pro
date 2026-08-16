@@ -17,13 +17,31 @@
  */
 
 import { readFile } from 'node:fs/promises';
-import { basename } from 'node:path';
+import { basename, isAbsolute, resolve } from 'node:path';
 
-const file = process.argv[2];
-if (!file) {
-  console.error('\nFalta el archivo de audio.\n  npm --prefix web run verify:deepgram -- audio.m4a\n');
+const argument = process.argv[2];
+if (!argument) {
+  console.error(
+    '\nFalta el archivo de audio.\n\n' +
+      '  npm --prefix web run verify:deepgram -- C:\\ruta\\a\\tu\\audio.m4a\n\n' +
+      'Sirve cualquier nota de voz. Lo útil es que hablen al menos dos personas.\n',
+  );
   process.exit(1);
 }
+
+/** También se acepta una URL pública, para poder probar sin grabar nada. */
+const isUrl = /^https?:\/\//i.test(argument);
+
+/*
+ * `npm --prefix web` ejecuta el script con el directorio de trabajo dentro de
+ * `web/`, así que una ruta relativa se buscaría allí y no donde está la persona.
+ * `INIT_CWD` conserva el directorio original.
+ */
+const file = isUrl
+  ? argument
+  : isAbsolute(argument)
+    ? argument
+    : resolve(process.env.INIT_CWD ?? process.cwd(), argument);
 
 /* ── Configuración ───────────────────────────────────────────────────────── */
 
@@ -53,7 +71,20 @@ const model = process.env.DEEPGRAM_MODEL ?? 'nova-2';
 
 /* ── Petición ────────────────────────────────────────────────────────────── */
 
-const audio = await readFile(file);
+let audio: Buffer | null = null;
+if (!isUrl) {
+  try {
+    audio = await readFile(file);
+  } catch {
+    console.error(`\nNo encuentro el archivo:\n  ${file}\n\nComprueba la ruta y vuelve a intentarlo.\n`);
+    process.exit(1);
+  }
+  if (audio.length < 1024) {
+    console.error('\nEl archivo está vacío o es demasiado pequeño para contener voz.\n');
+    process.exit(1);
+  }
+}
+
 const mime =
   file.endsWith('.m4a') || file.endsWith('.mp4')
     ? 'audio/mp4'
@@ -73,14 +104,20 @@ const params = new URLSearchParams({
 });
 
 console.log(`\nACTA PRO · comprobación de Deepgram`);
-console.log(`  archivo : ${basename(file)} (${Math.round(audio.length / 1024)} KB, ${mime})`);
+console.log(
+  audio
+    ? `  archivo : ${basename(file)} (${Math.round(audio.length / 1024)} KB, ${mime})`
+    : `  audio   : ${file}`,
+);
 console.log(`  modelo  : ${model}\n`);
 
 const started = Date.now();
 const response = await fetch(`https://api.deepgram.com/v1/listen?${params}`, {
   method: 'POST',
-  headers: { Authorization: `Token ${key}`, 'Content-Type': mime },
-  body: new Uint8Array(audio),
+  headers: audio
+    ? { Authorization: `Token ${key}`, 'Content-Type': mime }
+    : { Authorization: `Token ${key}`, 'Content-Type': 'application/json' },
+  body: audio ? new Uint8Array(audio) : JSON.stringify({ url: file }),
 });
 const elapsed = ((Date.now() - started) / 1000).toFixed(1);
 
