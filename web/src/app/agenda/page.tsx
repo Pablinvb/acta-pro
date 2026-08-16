@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
+import { Counter } from '@/components/Counter';
 import { Banner, Card, Label, PageHead, Pill, WfTag, type Tone } from '@/components/ui';
 import {
   ACTIVE_MEETING_ID,
@@ -8,6 +9,7 @@ import {
   meetings,
   teacher,
 } from '@/lib/mock/data';
+import { requireSession } from '@/lib/session';
 import type { Meeting } from '@/lib/types';
 
 export const metadata = { title: 'Agenda · ACTA PRO' };
@@ -39,24 +41,24 @@ function Tile({
   attention?: boolean;
 }) {
   return (
-    <div className="rounded-[14px] border border-line bg-surface p-4 shadow-card">
+    <div className="rounded-[14px] border border-line bg-surface p-4 shadow-card transition-shadow hover:shadow-float">
       <Label>{label}</Label>
-      <p
-        className={`tabular mt-1.5 text-[30px] leading-none font-semibold tracking-tight ${attention ? 'text-warn' : ''}`}
-      >
-        {value}
-      </p>
+      <Counter
+        value={value}
+        className={`mt-1.5 block text-[30px] leading-none font-semibold tracking-tight ${attention ? 'text-warn' : ''}`}
+      />
       <p className="mt-1.5 text-xs text-ink-3">{note}</p>
     </div>
   );
 }
 
-export default function AgendaPage() {
+export default async function AgendaPage() {
+  const session = await requireSession();
   const contextMeeting = findMeeting(ACTIVE_MEETING_ID)!;
   const incomplete = meetings.filter((m) => m.data_status === 'manual_verification_required');
 
   return (
-    <AppShell meeting={contextMeeting} teacherName={teacher.name} teacherId={teacher.teacher_id}>
+    <AppShell meeting={contextMeeting} teacherName={session.name} teacherId={session.teacherId}>
       <div className="flex flex-col gap-4 p-5.5">
         <PageHead
           title="Agenda de reuniones"
@@ -64,7 +66,7 @@ export default function AgendaPage() {
           tag="WF 01 CALENDAR INTAKE"
         />
 
-        <div className="grid grid-cols-4 gap-3.5 max-md:grid-cols-2">
+        <div className="stagger grid grid-cols-4 gap-3.5 max-md:grid-cols-2">
           <Tile label="Reuniones hoy" value={dashboardSummary.meetingsToday} note="1 en curso · 2 programadas" />
           <Tile label="Actas por revisar" value={dashboardSummary.pendingReview} note="La más antigua: hace 2 días" attention />
           <Tile label="Enviadas esta semana" value={dashboardSummary.sentThisWeek} note="7 confirmadas por el representante" />
@@ -72,13 +74,13 @@ export default function AgendaPage() {
         </div>
 
         <Card title="Hoy" tag="WF 04 REMINDER ACTIVO" bodyClassName="">
-          <ul className="flex list-none flex-col">
+          <ul className="stagger flex list-none flex-col">
             {meetings.map((m, i) => {
               const state = rowState(m);
               return (
                 <li
                   key={m.meeting_id}
-                  className={`flex items-center gap-3.5 px-4 py-3 max-md:flex-wrap ${i > 0 ? 'border-t border-line' : ''}`}
+                  className={`flex items-center gap-3.5 px-4 py-3 transition-colors hover:bg-surface-2 max-md:flex-wrap ${i > 0 ? 'border-t border-line' : ''}`}
                 >
                   <span className="tabular w-14 shrink-0 font-data text-[13px] text-ink-2">
                     {m.start_time}

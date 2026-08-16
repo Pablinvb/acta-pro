@@ -130,12 +130,25 @@ export function submitTeacherReview(payload: TeacherReviewPayload) {
 
 /* ── WF 12 ────────────────────────────────────────────────────────────────── */
 
+/**
+ * El WF 12 valida las DOS firmas en la misma llamada: si falta cualquiera
+ * responde 400 `firmas_incompletas`. Por eso no existe un envío por firmante —
+ * la reunión se firma entera o no se firma.
+ *
+ * Cada firma es un PNG en data URI producido por el pad manuscrito.
+ */
 export interface SignaturePayload {
   meeting_id: string;
-  signer_role: 'teacher' | 'representative';
-  signer_name: string;
+  teacher_signature: string;
+  representative_signature: string;
+  document_version?: number;
 }
 
-export function submitSignature(payload: SignaturePayload) {
+/**
+ * Completar las firmas es lo que pone la reunión en `status = signed` y encadena
+ * el resto del proceso en n8n (13 documento final, 14 archivo, 15 envío). No hay
+ * un webhook aparte para enviar el acta: esta llamada es el disparo.
+ */
+export function submitSignatures(payload: SignaturePayload) {
   return postJson(WEBHOOKS.signatures, payload);
 }

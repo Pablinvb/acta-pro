@@ -2,12 +2,14 @@ import { notFound } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { PageHead } from '@/components/ui';
 import { dataSource } from '@/lib/env';
-import { findMeeting, teacher, transcript } from '@/lib/mock/data';
+import { findMeeting, transcript } from '@/lib/mock/data';
+import { requireSession } from '@/lib/session';
 import { SalaClient } from './SalaClient';
 
 export const metadata = { title: 'Sala de reunión · ACTA PRO' };
 
 export default async function SalaPage({ params }: { params: Promise<{ id: string }> }) {
+  const session = await requireSession();
   const { id } = await params;
   const meeting = findMeeting(decodeURIComponent(id));
   if (!meeting) notFound();
@@ -15,8 +17,8 @@ export default async function SalaPage({ params }: { params: Promise<{ id: strin
   return (
     <AppShell
       meeting={{ ...meeting, status: 'in_progress' }}
-      teacherName={teacher.name}
-      teacherId={teacher.teacher_id}
+      teacherName={session.name}
+      teacherId={session.teacherId}
     >
       <div className="flex flex-col gap-4 p-5.5">
         <PageHead

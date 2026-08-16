@@ -26,6 +26,12 @@ export const teacher: Teacher = {
   email: 'ana.perez@colegio.edu.ec',
 };
 
+/**
+ * Docentes que pueden acceder. Hoy es una lista fija porque todavía no hay
+ * almacén de usuarios; sustituir por una consulta real cuando exista.
+ */
+export const teachers: Teacher[] = [teacher];
+
 export const student: Student = {
   student_id: 'S-0231',
   name: 'Juan Pérez López',

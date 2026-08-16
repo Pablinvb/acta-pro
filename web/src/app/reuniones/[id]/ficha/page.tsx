@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { Avatar, Banner, Card, Label, PageHead, WfTag } from '@/components/ui';
-import { findMeeting, previousDocuments, representative, student, teacher } from '@/lib/mock/data';
+import { findMeeting, previousDocuments, representative, student } from '@/lib/mock/data';
+import { requireSession } from '@/lib/session';
 
 export const metadata = { title: 'Ficha previa · ACTA PRO' };
 
@@ -16,6 +17,7 @@ function Stat({ value, label }: { value: string; label: string }) {
 }
 
 export default async function FichaPage({ params }: { params: Promise<{ id: string }> }) {
+  const session = await requireSession();
   const { id } = await params;
   const meeting = findMeeting(decodeURIComponent(id));
   if (!meeting) notFound();
@@ -23,7 +25,7 @@ export default async function FichaPage({ params }: { params: Promise<{ id: stri
   const verified = meeting.data_status !== 'manual_verification_required';
 
   return (
-    <AppShell meeting={meeting} teacherName={teacher.name} teacherId={teacher.teacher_id}>
+    <AppShell meeting={meeting} teacherName={session.name} teacherId={session.teacherId}>
       <div className="flex flex-col gap-4 p-5.5">
         <PageHead
           title="Ficha previa"

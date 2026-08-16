@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/components/Toast';
+import { Waveform } from '@/components/Waveform';
 import { Avatar, Banner, Button, Card, Pill, WfTag } from '@/components/ui';
 import type { Meeting, TranscriptSegment } from '@/lib/types';
 
@@ -33,7 +35,9 @@ export function SalaClient({
   isMock: boolean;
 }) {
   const router = useRouter();
+  const toast = useToast();
 
+  const [stream, setStream] = useState<MediaStream | null>(null);
   const [state, setState] = useState<RecordingState>('idle');
   const [error, setError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
@@ -88,12 +92,24 @@ export function SalaClient({
         setChunks((c) =>
           c.map((x) => (x.index === index ? { ...x, state: res.ok ? 'sent' : 'failed' } : x)),
         );
+        if (!res.ok) {
+          toast({
+            tone: 'warn',
+            title: `Fragmento ${index} no llegó a n8n`,
+            detail: 'La grabación continúa. Solo se perdió este tramo.',
+          });
+        }
       } catch {
         // Un fragmento perdido no interrumpe la reunión ni descarta los anteriores.
         setChunks((c) => c.map((x) => (x.index === index ? { ...x, state: 'failed' } : x)));
+        toast({
+          tone: 'warn',
+          title: `Fragmento ${index} sin enviar`,
+          detail: 'Sin conexión. La grabación sigue en marcha.',
+        });
       }
     },
-    [meeting.meeting_id, present],
+    [meeting.meeting_id, present, toast],
   );
 
   /* ── Iniciar ── */
@@ -122,22 +138,33 @@ export function SalaClient({
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-      const recorder = new MediaRecorder(stream);
+      const media = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = media;
+      setStream(media);
+      const recorder = new MediaRecorder(media);
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) void sendChunk(e.data);
       };
       recorder.start(CHUNK_MS);
       recorderRef.current = recorder;
       setState('recording');
+      toast({
+        tone: 'ok',
+        title: 'Grabación iniciada',
+        detail: `Se enviará un fragmento cada ${CHUNK_MS / 1000} segundos.`,
+      });
     } catch {
       setState('error');
       setError(
         'No se pudo acceder al micrófono. Revisa los permisos del navegador y vuelve a intentarlo.',
       );
+      toast({
+        tone: 'crit',
+        title: 'Micrófono no disponible',
+        detail: 'Sin micrófono no hay transcripción ni acta.',
+      });
     }
-  }, [meeting, present, sendChunk]);
+  }, [meeting, present, sendChunk, toast]);
 
   /* ── Pausar / reanudar / detener ── */
   const togglePause = useCallback(() => {
@@ -198,6 +225,8 @@ export function SalaClient({
               </p>
             </div>
           </div>
+
+          <Waveform stream={stream} active={recording} />
 
           {error && (
             <div className="mt-3.5">

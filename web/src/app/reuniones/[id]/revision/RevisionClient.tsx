@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/components/Toast';
 import { Banner, Button, Pill, WfTag } from '@/components/ui';
 import type {
   LanguageLevel,
@@ -47,6 +48,7 @@ export function RevisionClient({
   totalReviewed: number;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [findings, setFindings] = useState(initialFindings);
   const [selected, setSelected] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<'approve' | 'reject' | null>(null);
@@ -64,13 +66,37 @@ export function RevisionClient({
   const openAll = findings.filter((f) => f.resolution === 'open');
   const applied = findings.filter((f) => f.resolution === 'applied');
 
-  const resolve = useCallback((id: string, resolution: 'applied' | 'kept') => {
-    setFindings((fs) => fs.map((f) => (f.id === id ? { ...f, resolution } : f)));
-  }, []);
+  const resolve = useCallback(
+    (id: string, resolution: 'applied' | 'kept') => {
+      setFindings((fs) => fs.map((f) => (f.id === id ? { ...f, resolution } : f)));
+      const mark = markRefs.current[id];
+      if (mark) {
+        // Latido en el fragmento: confirma dónde ocurrió el cambio dentro del acta.
+        mark.classList.remove('animate-mark-pulse');
+        void mark.offsetWidth; // Reinicia la animación.
+        mark.classList.add('animate-mark-pulse');
+        mark.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+      toast({
+        tone: resolution === 'applied' ? 'ok' : 'info',
+        title: resolution === 'applied' ? 'Sugerencia aplicada' : 'Se mantiene el original',
+        detail:
+          resolution === 'applied'
+            ? 'El acta se actualizó con la redacción sugerida.'
+            : 'Tu decisión queda registrada en el log de auditoría.',
+      });
+    },
+    [toast],
+  );
 
   const focusMark = useCallback((id: string) => {
     setSelected(id);
-    markRefs.current[id]?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    const mark = markRefs.current[id];
+    if (!mark) return;
+    mark.classList.remove('animate-mark-pulse');
+    void mark.offsetWidth;
+    mark.classList.add('animate-mark-pulse');
+    mark.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }, []);
 
   const focusCard = useCallback((id: string) => {
@@ -121,9 +147,15 @@ export function RevisionClient({
             tone: 'warn',
             text: 'Acta rechazada. El workflow 11 la devuelve a borrador; no se ha perdido nada.',
           });
+          toast({ tone: 'warn', title: 'Acta rechazada', detail: 'Vuelve a estado de borrador.' });
           return;
         }
-        router.push(`/reuniones/${encodeURIComponent(minutes.meeting_id)}/envio`);
+        toast({
+          tone: 'ok',
+          title: 'Acta aprobada',
+          detail: 'Siguiente paso: recoger las firmas.',
+        });
+        router.push(`/reuniones/${encodeURIComponent(minutes.meeting_id)}/firmas`);
       } catch {
         setFeedback({
           tone: 'crit',

@@ -14,6 +14,35 @@ Abre http://localhost:3000. Sin configurar nada, la app arranca en **modo
 demostración** con los datos de `docs/DATOS_DE_PRUEBA.md`: se puede recorrer el
 ciclo completo sin n8n, sin Runachay y sin datos reales de estudiantes.
 
+## Acceso
+
+Todo salvo la pantalla de acceso exige sesión iniciada, incluidas las rutas
+`/api/n8n/*`: sin eso, cualquiera podría disparar tus webhooks desde fuera de la
+aplicación. Lo aplica `src/proxy.ts`, y además cada página vuelve a comprobarlo
+por su cuenta.
+
+La sesión es una cookie `httpOnly` firmada con HMAC-SHA256 mediante Web Crypto,
+para que el mismo código funcione en Node y en el runtime Edge del proxy. La
+carga útil va firmada, no cifrada, así que solo contiene el identificador de la
+docente, su nombre y la caducidad (8 horas).
+
+En producción son **obligatorias**:
+
+```
+AUTH_SECRET=…        # openssl rand -base64 32
+TEACHER_PASSWORD=…
+```
+
+Sin `AUTH_SECRET` el servidor no arranca en producción. En desarrollo se usa un
+secreto conocido y la contraseña `acta-pro-demo`, y la pantalla de acceso lo
+advierte.
+
+> **Provisional a propósito.** Es una contraseña compartida, no un sistema de
+> identidad: todavía no hay almacén de usuarios porque los workflows 03/05/11/14
+> tienen la base de datos como `NoOp`. Cuando exista, se sustituye
+> `verifyCredentials` en `src/lib/auth.ts` por una consulta real, o se delega en
+> Google Workspace / Runachay. El resto del módulo no cambia.
+
 ## Conectar con n8n
 
 ```bash
@@ -46,11 +75,33 @@ Si proteges los webhooks con Header Auth en n8n, define `N8N_AUTH_HEADER_NAME` y
 
 | Ruta | Pantalla | Workflows |
 |---|---|---|
+| `/login` | Acceso docente | — |
 | `/agenda` | Agenda de reuniones | 01 · 03 · 04 |
 | `/reuniones/[id]/ficha` | Ficha previa | 02 · 03 |
 | `/reuniones/[id]/sala` | Sala de reunión | 05 · 06 · 07 |
 | `/reuniones/[id]/revision` | Revisión del acta | 08 · 09 · 10 · 11 |
+| `/reuniones/[id]/firmas` | Firmas | 12 · 13 |
 | `/reuniones/[id]/envio` | Envío y archivo | 14 · 15 · 16 |
+
+## Firmas
+
+Ambas firmas se recogen en el mismo dispositivo al terminar la reunión, que es
+como ocurre de verdad: la representante firma en el iPad antes de irse. El pad
+usa Pointer Events, así que funciona con dedo, Apple Pencil y ratón, y suaviza
+el trazo con curvas cuadráticas — unir con rectas las muestras irregulares de un
+dedo produce un garabato que no se parece a la firma de nadie.
+
+Antes de firmar se muestran los acuerdos y compromisos: pedir una firma sobre un
+documento que la persona no puede leer sería inaceptable.
+
+> **El workflow 12 exige las dos firmas en la misma llamada** (`teacher_signature`
+> y `representative_signature`) y responde 400 `firmas_incompletas` si falta
+> cualquiera. Por eso no existe un envío por firmante.
+
+> **El envío del acta no se dispara desde la interfaz.** Los workflows 13, 14 y
+> 15 no exponen webhook: se encadenan en n8n cuando el workflow 12 recibe las
+> firmas y pone la reunión en `status = signed`. La pantalla de envío muestra
+> qué va a pasar y dónde, en lugar de ofrecer un botón que no llamaría a nada.
 
 ## Reglas de la arquitectura que la interfaz hace cumplir
 

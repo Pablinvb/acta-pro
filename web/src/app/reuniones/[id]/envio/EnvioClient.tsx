@@ -2,114 +2,68 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useToast } from '@/components/Toast';
 import { Banner, Button, Card, Pill, WfTag } from '@/components/ui';
-import type { FollowUp, Meeting, Signature } from '@/lib/types';
+import type { FollowUp, Meeting } from '@/lib/types';
 
-function Check({ done, children, note }: { done: boolean; children: string; note?: string }) {
-  return (
-    <li className="flex items-center gap-2.5 border-t border-line py-2.5 text-[13px] first:border-t-0">
-      <span
-        aria-hidden
-        className={`grid size-5 shrink-0 place-items-center rounded-full border text-[11px] font-bold ${
-          done ? 'border-ok-border bg-ok-soft text-ok' : 'border-line-strong bg-surface-2 text-ink-3'
-        }`}
-      >
-        {done ? '✓' : '○'}
-      </span>
-      <span className="flex-1">{children}</span>
-      {note && <span className="font-data text-[10px] text-ink-3">{note}</span>}
-    </li>
-  );
-}
+/**
+ * Envío y archivo.
+ *
+ * Esta pantalla NO dispara el envío: los workflows 13, 14 y 15 no exponen
+ * webhook. Se encadenan en n8n cuando el workflow 12 recibe las dos firmas y
+ * pone la reunión en `status = signed`. Así que aquí se muestra qué va a pasar
+ * (y dónde), y si falta firmar se manda al paso 05 en lugar de ofrecer un botón
+ * que no llamaría a nada.
+ */
+
+const PIPELINE = [
+  { wf: 'WF 12', label: 'Firmas registradas', detail: 'Docente y representante' },
+  { wf: 'WF 13', label: 'Documento final generado', detail: 'HTML → PDF' },
+  { wf: 'WF 14', label: 'Archivado en Google Drive', detail: 'Carpeta del estudiante' },
+  { wf: 'WF 15', label: 'Enviado por Gmail', detail: 'Al correo del representante' },
+  { wf: 'WF 16', label: 'Seguimiento creado', detail: 'Evento en Calendar' },
+];
 
 export function EnvioClient({
   meeting,
-  signatures,
   drivePath,
   transcriptVaultPath,
   followUp,
   canSend,
+  signed,
 }: {
   meeting: Meeting;
-  signatures: Signature[];
   drivePath: string;
   transcriptVaultPath: string;
   followUp: FollowUp;
   canSend: boolean;
+  signed: boolean;
 }) {
-  const [sent, setSent] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
+  const [copied, setCopied] = useState(false);
 
-  const teacherSig = signatures.find((s) => s.signer_role === 'teacher');
-  const repSig = signatures.find((s) => s.signer_role === 'representative');
-
-  async function send() {
-    setSending(true);
-    setError(null);
+  async function copyPath() {
     try {
-      const res = await fetch('/api/n8n/signatures', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          meeting_id: meeting.meeting_id,
-          signer_role: 'teacher',
-          signer_name: meeting.teacher_name,
-        }),
-      });
-      if (!res.ok) {
-        const body = await res.json();
-        setError(body.message ?? 'No se pudo completar el envío.');
-        return;
-      }
-      setSent(true);
+      await navigator.clipboard.writeText(drivePath);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast({ tone: 'ok', title: 'Ruta copiada', detail: 'Pégala donde la necesites.' });
     } catch {
-      setError('No se pudo contactar con el servidor. El acta sigue guardada; reintenta.');
-    } finally {
-      setSending(false);
+      toast({ tone: 'crit', title: 'No se pudo copiar', detail: 'Selecciona la ruta a mano.' });
     }
-  }
-
-  if (sent) {
-    return (
-      <Card className="py-11 text-center">
-        <span
-          aria-hidden
-          className="mx-auto mb-4 grid size-14 place-items-center rounded-full border border-ok-border bg-ok-soft text-2xl text-ok"
-        >
-          ✓
-        </span>
-        <h2 className="mb-1.5 text-[19px] font-semibold">Acta enviada y archivada</h2>
-        <p className="mb-5 text-[13px] text-ink-3">
-          {meeting.meeting_id} · enviada a {meeting.representative_email} · archivada en Google Drive
-        </p>
-        <div className="flex flex-wrap justify-center gap-2">
-          <Pill tone="ok">Correo entregado</Pill>
-          <Pill tone="ok">Archivada en Drive</Pill>
-          <Pill tone="ok">Seguimiento creado {followUp.date}</Pill>
-          <Pill tone="warn">Firma del representante pendiente</Pill>
-        </div>
-        <Link
-          href="/agenda"
-          role="button"
-          className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-[10px] border border-line-strong bg-surface px-4 text-sm font-medium transition hover:bg-surface-2"
-        >
-          Volver a la agenda
-        </Link>
-      </Card>
-    );
   }
 
   return (
     <div className="flex items-start gap-3.5 max-lg:flex-col">
-      {/* ── El correo ── */}
+      {/* ── El correo que saldrá ── */}
       <div className="flex min-w-0 flex-1 flex-col gap-3.5 max-lg:w-full">
         <Card title="Correo al representante" tag="WF 15">
           <div className="overflow-hidden rounded-[10px] border border-line">
             <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-b border-line bg-surface-2 px-3.5 py-3 text-xs">
               <dt className="text-ink-3">Para</dt>
               <dd className="m-0 break-all">
-                {meeting.representative_name} &lt;{meeting.representative_email || '— sin correo —'}&gt;
+                {meeting.representative_name} &lt;
+                {meeting.representative_email || '— sin correo verificado —'}&gt;
               </dd>
               <dt className="text-ink-3">Asunto</dt>
               <dd className="m-0">
@@ -138,26 +92,56 @@ export function EnvioClient({
           </div>
         </Card>
 
-        <Card title="Antes de enviar" bodyClassName="px-4 py-1">
-          <ul className="flex list-none flex-col">
-            <Check done note="14 ago 10:52">Acta aprobada por la docente</Check>
-            <Check done={!!teacherSig?.signed_at} note="14 ago 10:53">
-              Firma digital de la docente
-            </Check>
-            <Check done={!!repSig?.signed_at}>Firma de la representante</Check>
-            <Check done={canSend} note="RUNACHAY">
-              Correo del representante verificado
-            </Check>
-          </ul>
+        <Card title="Qué hace n8n al completar las firmas" tag="WF 12 → 16">
+          <ol className="stagger flex list-none flex-col">
+            {PIPELINE.map((step, i) => (
+              <li
+                key={step.wf}
+                className={`flex items-center gap-3 py-2.5 text-[13px] ${i > 0 ? 'border-t border-line' : ''}`}
+              >
+                <span
+                  aria-hidden
+                  className={`grid size-5 shrink-0 place-items-center rounded-full border text-[11px] font-bold transition-colors ${
+                    signed
+                      ? 'border-ok-border bg-ok-soft text-ok'
+                      : 'border-line-strong bg-surface-2 text-ink-3'
+                  }`}
+                >
+                  {signed ? '✓' : i + 1}
+                </span>
+                <span className="flex-1">
+                  <span className="block font-medium">{step.label}</span>
+                  <span className="block text-xs text-ink-3">{step.detail}</span>
+                </span>
+                <WfTag>{step.wf}</WfTag>
+              </li>
+            ))}
+          </ol>
         </Card>
       </div>
 
-      {/* ── Destino y seguimiento ── */}
+      {/* ── Destino y estado ── */}
       <div className="flex w-[340px] shrink-0 flex-col gap-3.5 max-lg:w-full">
-        <Card title="Ubicación en Google Drive" tag="WF 14">
+        <Card
+          title="Ubicación en Google Drive"
+          tag="WF 14"
+          aside={
+            <button
+              type="button"
+              onClick={copyPath}
+              className="min-h-0 rounded-md px-2 py-1 text-[11px] text-ink-3 transition hover:bg-surface-2 hover:text-ink"
+            >
+              {copied ? '✓ Copiada' : 'Copiar ruta'}
+            </button>
+          }
+        >
           <ol className="list-none font-data text-[11px] leading-7 text-ink-2">
             {drivePath.split('/').map((part, i, arr) => (
-              <li key={part} style={{ paddingLeft: `${i * 1.2}em` }} className={i === arr.length - 1 ? 'font-semibold text-ink' : ''}>
+              <li
+                key={part}
+                style={{ paddingLeft: `${i * 1.2}em` }}
+                className={i === arr.length - 1 ? 'font-semibold text-ink' : ''}
+              >
                 {i === arr.length - 1 ? '📄' : '📁'} {part}
               </li>
             ))}
@@ -187,21 +171,38 @@ export function EnvioClient({
           </Banner>
         )}
 
-        {error && (
-          <Banner tone="crit" title="No se pudo enviar">
-            <p className="mt-0.5">{error}</p>
-          </Banner>
+        {signed ? (
+          <>
+            <Banner tone="ok" title="Acta firmada y en curso">
+              <p className="mt-0.5">
+                n8n ya tiene todo lo que necesita. No hace falta ninguna acción más aquí.
+              </p>
+            </Banner>
+            <Link
+              href="/agenda"
+              role="button"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-[10px] border border-line-strong bg-surface px-4 text-sm font-medium transition hover:bg-surface-2"
+            >
+              Volver a la agenda
+            </Link>
+          </>
+        ) : (
+          <>
+            <Banner tone="warn" title="Falta firmar el acta">
+              <p className="mt-0.5">
+                El envío no se dispara desde aquí: lo encadena n8n cuando el workflow 12 recibe las
+                dos firmas.
+              </p>
+            </Banner>
+            <Link
+              href={`/reuniones/${encodeURIComponent(meeting.meeting_id)}/firmas`}
+              role="button"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-[10px] border border-accent bg-accent px-4 text-sm font-medium text-accent-on transition hover:brightness-110"
+            >
+              Ir a firmar
+            </Link>
+          </>
         )}
-
-        <Button variant="primary" onClick={send} disabled={!canSend || sending}>
-          {sending ? 'Enviando…' : 'Enviar acta al representante'}
-        </Button>
-        <p className="text-center text-[10px] tracking-wider text-ink-3 uppercase">
-          Esta acción envía un correo real y archiva el documento
-        </p>
-        <p className="text-center">
-          <WfTag>WF 12 SIGNATURES · WF 14 DRIVE · WF 15 GMAIL</WfTag>
-        </p>
       </div>
     </div>
   );
