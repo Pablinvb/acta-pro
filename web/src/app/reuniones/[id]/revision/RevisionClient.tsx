@@ -4,7 +4,9 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/Toast';
 import { Banner, Button, Pill, WfTag } from '@/components/ui';
+import { useDraft } from '@/lib/useDraft';
 import type {
+  FindingResolution,
   LanguageLevel,
   MeetingMinutes,
   MinutesSection,
@@ -49,7 +51,24 @@ export function RevisionClient({
 }) {
   const router = useRouter();
   const toast = useToast();
-  const [findings, setFindings] = useState(initialFindings);
+
+  /**
+   * Solo se guarda la decisión por hallazgo, no el acta entera: el texto viene
+   * del servidor y no tiene sentido duplicarlo en el dispositivo.
+   */
+  const {
+    value: resolutions,
+    setValue: setResolutions,
+    clear: clearDraft,
+  } = useDraft<Record<string, FindingResolution>>(
+    `revision:${minutes.meeting_id}`,
+    Object.fromEntries(initialFindings.map((f) => [f.id, f.resolution])),
+  );
+
+  const findings = useMemo(
+    () => initialFindings.map((f) => ({ ...f, resolution: resolutions[f.id] ?? f.resolution })),
+    [initialFindings, resolutions],
+  );
   const [selected, setSelected] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<'approve' | 'reject' | null>(null);
   const [feedback, setFeedback] = useState<{ tone: 'ok' | 'crit' | 'warn'; text: string } | null>(null);
@@ -68,7 +87,7 @@ export function RevisionClient({
 
   const resolve = useCallback(
     (id: string, resolution: 'applied' | 'kept') => {
-      setFindings((fs) => fs.map((f) => (f.id === id ? { ...f, resolution } : f)));
+      setResolutions((rs) => ({ ...rs, [id]: resolution }));
       const mark = markRefs.current[id];
       if (mark) {
         // Latido en el fragmento: confirma dónde ocurrió el cambio dentro del acta.
@@ -86,7 +105,7 @@ export function RevisionClient({
             : 'Tu decisión queda registrada en el log de auditoría.',
       });
     },
-    [toast],
+    [toast, setResolutions],
   );
 
   const focusMark = useCallback((id: string) => {
@@ -150,6 +169,8 @@ export function RevisionClient({
           toast({ tone: 'warn', title: 'Acta rechazada', detail: 'Vuelve a estado de borrador.' });
           return;
         }
+        // El trabajo ya viajó a n8n: el borrador local deja de hacer falta.
+        clearDraft();
         toast({
           tone: 'ok',
           title: 'Acta aprobada',
@@ -165,7 +186,7 @@ export function RevisionClient({
         setSubmitting(null);
       }
     },
-    [minutes.meeting_id, applied.length, buildEditedContent, router],
+    [minutes.meeting_id, applied.length, buildEditedContent, router, toast, clearDraft],
   );
 
   /* ── Un punto del acta, resaltado si el WF 09 lo marcó ── */

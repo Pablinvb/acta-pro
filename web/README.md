@@ -129,6 +129,32 @@ se pierde un fragmento y no la reunión entera.
 La grabación **no empieza sin una acción explícita**. No se pide el micrófono al
 cargar la pantalla.
 
+La forma de onda se dibuja leyendo el `AnalyserNode` del stream real, así que es
+la prueba visible de que se está captando audio: un permiso mal concedido o un
+micrófono ocupado por otra aplicación se ve al instante, y no cuando ya no hay
+reunión que repetir.
+
+## Hablantes
+
+El workflow 07 (diarización) es todavía un marcador de posición y la
+identificación automática es Fase 3, así que en Fase 1 **la asignación manual es
+el mecanismo**, no un apaño. Cada fragmento lleva un selector con los
+participantes de la reunión, y hay una acción para aceptar de golpe los
+hablantes propuestos por la transcripción.
+
+Terminar la reunión con fragmentos sin hablante confirmado exige una segunda
+pulsación: el acta atribuye frases a personas concretas, y una atribución
+equivocada es justo el error que la protección documental existe para evitar.
+
+## Trabajo en curso
+
+Las decisiones de revisión se guardan en `sessionStorage` mientras no se hayan
+enviado, para que una recarga a mitad no las pierda. Se usa `sessionStorage` y
+no `localStorage` a propósito: el borrador contiene decisiones sobre el acta de
+un menor y el iPad de un aula puede pasar por varias manos, así que se vacía al
+cerrar la pestaña. Es una caché de trabajo, **no una fuente de verdad**: esa es
+la base de datos de n8n.
+
 ## Estructura
 
 ```
