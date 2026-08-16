@@ -127,6 +127,29 @@ export function Rail({
         })}
       </ul>
 
+      {/* El repositorio no pertenece a ninguna reunión: es el archivo de todas. */}
+      <div className="mt-4 border-t border-line px-2.5 pt-3 max-lg:hidden">
+        <Link
+          href="/repositorio"
+          aria-current={pathname === '/repositorio' ? 'page' : undefined}
+          className={`flex min-h-[46px] items-center gap-2.5 rounded-[10px] px-2.5 py-1.5 text-[13.5px] transition-colors ${
+            pathname === '/repositorio'
+              ? 'bg-accent-soft font-semibold text-ink'
+              : 'text-ink-2 hover:bg-surface-2 hover:text-ink'
+          }`}
+        >
+          <span aria-hidden className="grid size-[22px] shrink-0 place-items-center text-[13px]">
+            🗂
+          </span>
+          <span className="flex min-w-0 flex-col leading-tight">
+            <span className="truncate">Repositorio</span>
+            <span className="mt-0.5 font-data text-[9.5px] tracking-wide text-ink-3">
+              TODAS LAS ACTAS
+            </span>
+          </span>
+        </Link>
+      </div>
+
       <div className="mt-auto flex items-center gap-2.5 border-t border-line px-4.5 pt-3.5 pb-4.5 max-lg:hidden">
         <Avatar initials={initials} />
         <span className="min-w-0 flex-1">

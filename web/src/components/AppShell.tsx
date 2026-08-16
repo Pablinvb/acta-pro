@@ -20,31 +20,48 @@ const STATUS: Record<Meeting['status'], { label: string; tone: Tone }> = {
 
 export function AppShell({
   meeting,
+  meetingId,
+  title,
   teacherName,
   teacherId,
   children,
 }: {
-  meeting: Meeting;
+  /** Reunión en curso. Se omite en pantallas que no pertenecen a ninguna. */
+  meeting?: Meeting;
+  /** Reunión a la que apunta el rail cuando no hay una activa. */
+  meetingId?: string;
+  /** Contexto que se muestra arriba cuando no hay reunión. */
+  title?: string;
   teacherName: string;
   teacherId: string;
   children: ReactNode;
 }) {
-  const status = STATUS[meeting.status];
+  const status = meeting ? STATUS[meeting.status] : null;
 
   return (
     <ToastProvider>
       <div className="flex h-dvh min-h-[680px] max-lg:h-auto max-lg:min-h-0 max-lg:flex-col">
-        <Rail meetingId={meeting.meeting_id} teacherName={teacherName} teacherId={teacherId} />
+        <Rail
+          meetingId={meeting?.meeting_id ?? meetingId ?? ''}
+          teacherName={teacherName}
+          teacherId={teacherId}
+        />
 
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden max-lg:overflow-visible">
           <header className="flex shrink-0 items-center gap-3 border-b border-line bg-surface px-5.5 py-3">
-            <Chip mono>{meeting.meeting_id}</Chip>
-            <p className="truncate text-[13px] text-ink-3">
-              {meeting.student_name} · {meeting.course} · {meeting.meeting_type}
-            </p>
+            {meeting ? (
+              <>
+                <Chip mono>{meeting.meeting_id}</Chip>
+                <p className="truncate text-[13px] text-ink-3">
+                  {meeting.student_name} · {meeting.course} · {meeting.meeting_type}
+                </p>
+              </>
+            ) : (
+              <p className="truncate text-[13px] text-ink-3">{title}</p>
+            )}
             <div className="ml-auto flex items-center gap-2">
               {isDemo && <Pill tone="warn">Datos de demostración</Pill>}
-              <Pill tone={status.tone}>{status.label}</Pill>
+              {status && <Pill tone={status.tone}>{status.label}</Pill>}
               <ThemeToggle />
             </div>
           </header>

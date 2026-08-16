@@ -41,6 +41,9 @@ export async function archiveMinutes(
   const document: ArchivedDocument = {
     meeting_id: meeting.meeting_id,
     student_id: meeting.student_id,
+    // Desnormalizado a propósito: el repositorio busca por nombre sin tener que
+    // resolver el estudiante en cada resultado.
+    student_name: meeting.student_name,
     document_code: documentCode,
     meeting_type: meeting.meeting_type,
     date: meeting.date,

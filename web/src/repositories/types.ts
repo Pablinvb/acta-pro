@@ -48,8 +48,16 @@ export interface MeetingRepository {
 export interface TranscriptRepository {
   append(segment: TranscriptSegment): Promise<void>;
   listByMeeting(meetingId: string): Promise<TranscriptSegment[]>;
-  /** Confirmación manual de hablantes: en Fase 1 es el mecanismo, no un apaño. */
+  /** Confirmación de un fragmento suelto, cuando no hay separación de voces. */
   setSpeaker(meetingId: string, timestamp: string, speaker: string): Promise<void>;
+  /**
+   * Asigna un nombre a TODOS los fragmentos de una misma voz.
+   *
+   * Es la operación que hace útil la separación de voces: la docente decide una
+   * vez por hablante y no una vez por frase. Devuelve cuántos fragmentos quedaron
+   * atribuidos.
+   */
+  setSpeakerByTag(meetingId: string, speakerTag: string, speaker: string): Promise<number>;
   /** Texto corrido para el análisis con IA. */
   fullText(meetingId: string): Promise<string>;
 }
@@ -68,8 +76,19 @@ export interface SignatureRepository {
   save(signature: Signature & { image: string }): Promise<void>;
 }
 
+export interface DocumentSearch {
+  /** Texto libre: estudiante, tipo de reunión o código del acta. */
+  query?: string;
+  studentId?: string;
+  /** ISO `YYYY-MM-DD`. */
+  from?: string;
+  to?: string;
+}
+
 export interface DocumentRepository {
   listByStudent(studentId: string): Promise<ArchivedDocument[]>;
+  /** Búsqueda del repositorio de actas. Era el «Índice y búsqueda» del diagrama. */
+  search(criteria: DocumentSearch): Promise<ArchivedDocument[]>;
   save(document: ArchivedDocument): Promise<void>;
   /** Siguiente secuencia para el código `ACTA-YYYY-ESTUDIANTE-SECUENCIA`. */
   nextSequence(year: number, studentId: string): Promise<number>;

@@ -59,14 +59,16 @@ Cada servicio vive en `web/src/services/` y es responsable de un dominio.
 | `runachay` | Consulta estudiante y representante en la plataforma institucional |
 | `meeting` | Registro preliminar de la reunión e inicio de sesión de trabajo |
 | `speech` | Transcribe los fragmentos de audio durante la reunión |
-| `speaker` | Registra la confirmación de hablantes hecha por la docente |
+| `transcript-cleanup` | Depura el habla transcrita conservando el original |
+| `speaker` | Identifica qué persona es cada voz detectada |
 | `meeting-ai` | Analiza la transcripción y devuelve JSON estructurado |
 | `language-review` | Clasifica la redacción como GREEN / YELLOW / RED y sugiere alternativas |
 | `acta-generator` | Construye el acta con sus 13 secciones |
 | `approval` | Decisión de la docente. Único camino a `teacher_approved` |
 | `signature` | Firmas de docente y representante |
 | `document` | Documento final en HTML |
-| `storage` | Archivo en Google Drive |
+| `pdf` | Acta en PDF: se archiva, se adjunta y se imprime |
+| `storage` | Archivo en Drive o en almacenamiento de objetos |
 | `email` | Envío del acta y recordatorios |
 | `audit` | Registro de eventos críticos |
 | `meeting-lifecycle` | Orquesta las dos cadenas del proceso |
@@ -80,7 +82,8 @@ legible de una pieza.
 **Cerrar la reunión** — secuencial, porque cada paso necesita el anterior:
 
 ```
-análisis con IA → generación del acta → revisión de lenguaje
+depuración de la transcripción → análisis con IA → generación del acta →
+revisión de lenguaje
 ```
 
 Si algo falla, la reunión queda en `retry_required` con el motivo y se puede
@@ -212,7 +215,9 @@ separado.
 | Google Calendar / Drive / Gmail | Implementado, sin verificar contra las APIs reales |
 | OpenAI (transcripción y análisis) | Implementado, sin verificar contra la API real |
 | Runachay | Contrato implementado; esquema de respuesta aún desconocido |
-| Identificación automática de hablantes | Fase 3. Hoy confirma la docente |
+| Separación de voces (Deepgram) | Implementado, sin verificar contra la API real |
+| Identificación de quién es cada voz | Funcionando: la docente decide una vez por voz |
+| Repositorio de actas con búsqueda | Funcionando |
 | Autenticación | Contraseña compartida provisional; falta almacén de usuarios |
 
 ## Hoja de ruta

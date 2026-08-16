@@ -75,6 +75,7 @@ página HTML.
 | `GET · POST /api/reuniones/[id]/firmas` | Firmas y toda la cadena posterior |
 | `GET /api/reuniones/[id]/acta.pdf` | Acta en PDF · `?descargar` fuerza la descarga |
 | `GET /api/reuniones/[id]/auditoria` | Traza de la reunión |
+| `GET /api/actas` | Repositorio · `q`, `estudiante`, `desde`, `hasta` |
 
 ## Pantallas
 
@@ -87,6 +88,7 @@ página HTML.
 | `/reuniones/[id]/revision` | Revisión del acta |
 | `/reuniones/[id]/firmas` | Firmas |
 | `/reuniones/[id]/envio` | Envío y archivo |
+| `/repositorio` | Archivo de todas las actas, con búsqueda |
 
 ## Reglas que el sistema hace cumplir
 
@@ -150,14 +152,30 @@ Conviene tener clara una distinción que la publicidad de los proveedores mezcla
 > distintas y devuelve «A», «B», «C». **No sabe que «B» es María López**, porque
 > no la ha oído nunca. Eso no lo hace ningún proveedor.
 
-De ahí que la docente asigne los nombres **una vez por reunión** y no frase por
-frase: `samplesForIdentification` elige la intervención más larga de cada voz
-—un «buenos días» no basta para reconocer a alguien— y a partir de esa decisión
-todos los fragmentos de esa voz quedan atribuidos.
+De ahí que la docente asigne los nombres **una vez por voz**, no frase por
+frase. Al terminar la grabación, la sala cambia de tarea y muestra la pantalla
+de identificación: una tarjeta por voz con **su intervención más larga** —un
+«buenos días» no basta para reconocer a alguien— y los participantes como
+botones. Un toque por voz.
 
-Es lo máximo que la tecnología da hoy con garantías suficientes para un
-documento que alguien va a firmar. Atribuir una frase a la persona equivocada es
-exactamente el error que ACTA PRO existe para evitar.
+En los datos de demostración, tres decisiones atribuyen ocho intervenciones.
+
+Solo se aceptan personas que constan como participantes de la reunión: así no
+puede aparecer en un acta alguien que no estuvo. Es lo máximo que la tecnología
+da hoy con garantías suficientes para un documento que alguien va a firmar, y
+atribuir una frase a la persona equivocada es exactamente el error que ACTA PRO
+existe para evitar.
+
+## Repositorio
+
+`/repositorio` busca entre todas las actas archivadas por estudiante, tipo de
+reunión, código o rango de fechas, agrupando por estudiante: la pregunta real de
+una docente casi nunca es «dame el acta ACTA-2026-0114», sino «qué se ha hablado
+con la familia de este chico». La búsqueda ignora tildes, así que «perez»
+encuentra «Pérez».
+
+Con `ACTA_PRO_STORAGE=s3` esta pantalla no es una comodidad: es el único camino
+a un acta archivada, porque nadie puede «entrar» a un bucket.
 
 ## Almacenamiento
 

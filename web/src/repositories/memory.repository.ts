@@ -140,6 +140,14 @@ export const memoryRepositories: Repositories = {
         segment.speaker_confirmed = true;
       }
     },
+    async setSpeakerByTag(id, speakerTag, speaker) {
+      const matching = (store.transcripts.get(id) ?? []).filter((s) => s.speaker_tag === speakerTag);
+      for (const segment of matching) {
+        segment.speaker = speaker;
+        segment.speaker_confirmed = true;
+      }
+      return matching.length;
+    },
     async fullText(id) {
       // Se prefiere la versión depurada; el original sigue guardado como
       // evidencia y se usa solo si aún no se ha depurado.
@@ -188,6 +196,23 @@ export const memoryRepositories: Repositories = {
     async listByStudent(studentId) {
       return store.documents
         .filter((d) => d.student_id === studentId)
+        .sort((a, b) => b.date.localeCompare(a.date));
+    },
+    async search({ query, studentId, from, to }) {
+      // Se normaliza sin tildes: buscar «perez» debe encontrar «Pérez».
+      const normalize = (s: string) =>
+        s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+      const needle = query ? normalize(query) : '';
+
+      return store.documents
+        .filter((d) => !studentId || d.student_id === studentId)
+        .filter((d) => !from || d.date >= from)
+        .filter((d) => !to || d.date <= to)
+        .filter(
+          (d) =>
+            !needle ||
+            normalize(`${d.student_name} ${d.meeting_type} ${d.document_code}`).includes(needle),
+        )
         .sort((a, b) => b.date.localeCompare(a.date));
     },
     async save(document) {

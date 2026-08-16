@@ -247,6 +247,8 @@ export interface FollowUp {
 export interface ArchivedDocument {
   meeting_id: string;
   student_id: string;
+  /** Se guarda desnormalizado para poder buscar sin resolver el estudiante. */
+  student_name: string;
   document_code: string;
   meeting_type: string;
   date: string;

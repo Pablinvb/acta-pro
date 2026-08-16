@@ -136,7 +136,7 @@ export const transcript: TranscriptSegment[] = [
   {
     meeting_id: ACTIVE_MEETING_ID,
     timestamp: '2026-08-14T10:02:18Z',
-    speaker: 'Docente',
+    speaker_tag: 'A',
     speaker_confirmed: false,
     confidence_score: 0.94,
     text: 'Buenos días, gracias por venir. El objetivo de esta reunión es revisar el rendimiento académico de Juan en Matemáticas durante el primer parcial.',
@@ -144,7 +144,7 @@ export const transcript: TranscriptSegment[] = [
   {
     meeting_id: ACTIVE_MEETING_ID,
     timestamp: '2026-08-14T10:02:51Z',
-    speaker: 'Representante',
+    speaker_tag: 'B',
     speaker_confirmed: false,
     confidence_score: 0.91,
     text: 'Buenos días. La verdad es que no conocía las calificaciones del parcial hasta que recibí la citación.',
@@ -152,7 +152,7 @@ export const transcript: TranscriptSegment[] = [
   {
     meeting_id: ACTIVE_MEETING_ID,
     timestamp: '2026-08-14T10:03:34Z',
-    speaker: 'Docente',
+    speaker_tag: 'A',
     speaker_confirmed: false,
     confidence_score: 0.95,
     text: 'El promedio actual es de 6,8. Hay además dos tareas de álgebra que no fueron entregadas, el 2 y el 9 de julio.',
@@ -160,7 +160,7 @@ export const transcript: TranscriptSegment[] = [
   {
     meeting_id: ACTIVE_MEETING_ID,
     timestamp: '2026-08-14T10:04:12Z',
-    speaker: 'Estudiante',
+    speaker_tag: 'C',
     speaker_confirmed: false,
     confidence_score: 0.88,
     text: 'Sí, esas dos no las entregué. Me confundí con las fechas del cuaderno.',
@@ -168,7 +168,7 @@ export const transcript: TranscriptSegment[] = [
   {
     meeting_id: ACTIVE_MEETING_ID,
     timestamp: '2026-08-14T10:05:07Z',
-    speaker: 'Representante',
+    speaker_tag: 'B',
     speaker_confirmed: false,
     confidence_score: 0.9,
     text: 'En casa no tenemos un horario fijo para las tareas, yo salgo del trabajo a las siete.',
@@ -176,7 +176,7 @@ export const transcript: TranscriptSegment[] = [
   {
     meeting_id: ACTIVE_MEETING_ID,
     timestamp: '2026-08-14T10:06:40Z',
-    speaker: 'Docente',
+    speaker_tag: 'A',
     speaker_confirmed: false,
     confidence_score: 0.96,
     flagged_by_teacher: true,
@@ -185,7 +185,7 @@ export const transcript: TranscriptSegment[] = [
   {
     meeting_id: ACTIVE_MEETING_ID,
     timestamp: '2026-08-14T10:07:22Z',
-    speaker: 'Representante',
+    speaker_tag: 'B',
     speaker_confirmed: false,
     confidence_score: 0.93,
     text: 'De acuerdo. Me comprometo a revisar el cuaderno de tareas los domingos y a firmarlo.',
@@ -193,7 +193,7 @@ export const transcript: TranscriptSegment[] = [
   {
     meeting_id: ACTIVE_MEETING_ID,
     timestamp: '2026-08-14T10:08:03Z',
-    speaker: 'Docente',
+    speaker_tag: 'A',
     speaker_confirmed: false,
     confidence_score: 0.94,
     text: 'Perfecto. Enviaré el reporte de avance el primer viernes de cada mes por el correo institucional.',
@@ -394,25 +394,33 @@ export const followUp: FollowUp = {
   description: 'Seguimiento del plan de refuerzo · Juan Pérez López',
 };
 
+function archived(
+  meetingId: string,
+  studentId: string,
+  studentName: string,
+  code: string,
+  type: string,
+  date: string,
+  signed = true,
+): ArchivedDocument {
+  return {
+    meeting_id: meetingId,
+    student_id: studentId,
+    student_name: studentName,
+    document_code: code,
+    meeting_type: type,
+    date,
+    drive_path: `ACTA PRO/Docentes/Ana Pérez/${studentName}/${SCHOOL_YEAR}/${date} - ${type}`,
+    signed,
+  };
+}
+
 export const previousDocuments: ArchivedDocument[] = [
-  {
-    meeting_id: 'ACTA-2026-0114',
-    student_id: 'S-0231',
-    document_code: 'ACTA-2026-JUAN-PEREZ-0114',
-    meeting_type: 'Seguimiento de compromisos',
-    date: '2026-05-22',
-    drive_path: `ACTA PRO/Docentes/Ana Pérez/Juan Pérez López/${SCHOOL_YEAR}/2026-05-22 - Seguimiento de compromisos`,
-    signed: true,
-  },
-  {
-    meeting_id: 'ACTA-2026-0047',
-    student_id: 'S-0231',
-    document_code: 'ACTA-2026-JUAN-PEREZ-0047',
-    meeting_type: 'Rendimiento académico',
-    date: '2026-03-08',
-    drive_path: `ACTA PRO/Docentes/Ana Pérez/Juan Pérez López/${SCHOOL_YEAR}/2026-03-08 - Rendimiento académico`,
-    signed: true,
-  },
+  archived('ACTA-2026-0114', 'S-0231', 'Juan Pérez López', 'ACTA-2026-JUAN-PEREZ-0114', 'Seguimiento de compromisos', '2026-05-22'),
+  archived('ACTA-2026-0047', 'S-0231', 'Juan Pérez López', 'ACTA-2026-JUAN-PEREZ-0047', 'Rendimiento académico', '2026-03-08'),
+  archived('ACTA-2026-0098', 'S-0244', 'Camila Andrade Ruiz', 'ACTA-2026-CAMILA-ANDRADE-0098', 'Convivencia escolar', '2026-04-17'),
+  archived('ACTA-2026-0061', 'S-0119', 'Mateo Chávez Salinas', 'ACTA-2026-MATEO-CHAVEZ-0061', 'Rendimiento académico', '2026-03-21'),
+  archived('ACTA-2026-0132', 'S-0119', 'Mateo Chávez Salinas', 'ACTA-2026-MATEO-CHAVEZ-0132', 'Seguimiento de compromisos', '2026-06-09', false),
 ];
 
 /* ── Resumen del panel ────────────────────────────────────────────────────── */
