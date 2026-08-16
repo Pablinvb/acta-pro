@@ -94,7 +94,20 @@ export interface TranscriptSegment {
   meeting_id: string;
   /** ISO 8601. */
   timestamp: string;
+  /**
+   * Texto tal y como lo devolvió el reconocimiento de voz.
+   *
+   * **No se modifica nunca.** Es la evidencia de lo que se dijo: si algún día
+   * alguien discute el contenido de un acta, esto es lo que hay que poder
+   * mostrar. La versión legible es `clean_text`, que se deriva de aquí y se
+   * puede regenerar.
+   */
   text: string;
+  /**
+   * Versión depurada: sin muletillas, repeticiones ni falsos arranques. Es la
+   * que alimenta el análisis y la que se muestra en pantalla.
+   */
+  clean_text?: string;
   confidence_score: number | null;
   /** Lo rellena el WF 07; hasta entonces queda sin confirmar. */
   speaker?: string;

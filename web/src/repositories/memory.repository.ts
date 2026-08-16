@@ -141,8 +141,10 @@ export const memoryRepositories: Repositories = {
       }
     },
     async fullText(id) {
+      // Se prefiere la versión depurada; el original sigue guardado como
+      // evidencia y se usa solo si aún no se ha depurado.
       return (store.transcripts.get(id) ?? [])
-        .map((s) => `${s.speaker ?? 'Sin identificar'}: ${s.text}`)
+        .map((s) => `${s.speaker ?? 'Sin identificar'}: ${s.clean_text ?? s.text}`)
         .join('\n');
     },
   },

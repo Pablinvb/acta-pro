@@ -97,12 +97,20 @@ export function FirmasClient({
           <Pill tone="ok">Firma de la representante</Pill>
           <Pill tone="accent">status = signed</Pill>
         </div>
-        <Button
-          variant="primary"
-          onClick={() => router.push(`/reuniones/${encodeURIComponent(meeting.meeting_id)}/envio`)}
-        >
-          Ver envío y archivo
-        </Button>
+        <div className="flex flex-wrap justify-center gap-2">
+          <a
+            href={`/api/reuniones/${encodeURIComponent(meeting.meeting_id)}/acta.pdf?descargar`}
+            role="button"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[10px] border border-accent bg-accent px-4 text-sm font-medium text-accent-on transition hover:brightness-110"
+          >
+            <span aria-hidden>⬇</span> Descargar el acta en PDF
+          </a>
+          <Button
+            onClick={() => router.push(`/reuniones/${encodeURIComponent(meeting.meeting_id)}/envio`)}
+          >
+            Ver envío y archivo
+          </Button>
+        </div>
       </Card>
     );
   }

@@ -45,13 +45,15 @@ fallos del original que se corrigieron al portarlo están en
 | `runachay` | Estudiante y representante desde la plataforma del centro |
 | `meeting` | Registro e inicio de la reunión |
 | `speech` | Transcripción de los fragmentos de audio |
+| `transcript-cleanup` | Depura el habla transcrita, conservando el original |
 | `speaker` | Confirmación de hablantes |
 | `meeting-ai` | Análisis de la transcripción |
 | `language-review` | Clasificación GREEN / YELLOW / RED |
 | `acta-generator` | Las 13 secciones del acta |
 | `approval` | Decisión de la docente |
 | `signature` | Firmas de ambas partes |
-| `document` | Documento final |
+| `document` | Documento final en HTML |
+| `pdf` | Acta en PDF, para archivar, adjuntar e imprimir |
 | `storage` | Archivo en Drive |
 | `email` | Envío y recordatorios |
 | `audit` | Registro de eventos |
@@ -71,6 +73,7 @@ página HTML.
 | `POST /api/reuniones/[id]/cerrar` | Análisis → acta → revisión de lenguaje |
 | `GET · POST /api/reuniones/[id]/revision` | Hallazgos y decisión de la docente |
 | `GET · POST /api/reuniones/[id]/firmas` | Firmas y toda la cadena posterior |
+| `GET /api/reuniones/[id]/acta.pdf` | Acta en PDF · `?descargar` fuerza la descarga |
 | `GET /api/reuniones/[id]/auditoria` | Traza de la reunión |
 
 ## Pantallas
@@ -130,6 +133,35 @@ prueba visible de que se está captando audio.
 La identificación automática de hablantes es Fase 3, así que en Fase 1 **la
 confirmación manual es el mecanismo**, no un apaño: la docente estuvo en la
 reunión. Terminar con fragmentos sin confirmar exige una segunda pulsación.
+
+## Depuración de la transcripción
+
+El reconocimiento de voz devuelve el habla tal cual: «eh», «o sea», frases
+empezadas y abandonadas. Antes de analizar, `transcript-cleanup` la depura, y el
+modelo extrae mucho mejor los acuerdos de un texto limpio.
+
+> **El texto original nunca se modifica.** La versión depurada se guarda aparte,
+> en `clean_text`. Si alguien discute lo que dice un acta, hay que poder mostrar
+> exactamente lo que se transcribió, no una versión que un modelo consideró más
+> presentable. Depurar sobre el original destruiría la evidencia que este
+> producto existe para producir.
+
+El servicio tiene prohibido cambiar el significado, suavizar lo que alguien
+expresó o corregir el registro de nadie. Solo quita ruido.
+
+## Acta en PDF
+
+El PDF es el formato que se archiva en Drive, se adjunta al correo y se
+descarga. Se genera texto real con PDFKit, no una captura: queda seleccionable y
+buscable, que es justo lo que hace falta cuando se busca un acta dos años
+después.
+
+`?descargar` fuerza la descarga; sin el parámetro se abre en el visor, que en
+iPad es lo que permite mandarlo a imprimir directamente.
+
+> PDFKit lee sus métricas de fuente del disco en tiempo de ejecución, así que
+> está declarado en `serverExternalPackages`. Sin eso falla con `ENOENT` al
+> crear el documento.
 
 ## Firmas
 

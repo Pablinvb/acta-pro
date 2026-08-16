@@ -18,11 +18,13 @@ export * as languageReview from './language-review.service';
 export * as lifecycle from './meeting-lifecycle.service';
 export * as meetingAi from './meeting-ai.service';
 export * as meetings from './meeting.service';
+export * as pdf from './pdf.service';
 export * as runachay from './runachay.service';
 export * as signatures from './signature.service';
 export * as speaker from './speaker.service';
 export * as speech from './speech.service';
 export * as storage from './storage.service';
+export * as transcriptCleanup from './transcript-cleanup.service';
 
 export { ServiceError } from './errors';
 export { describeMode, isDemo, runMode } from './config';

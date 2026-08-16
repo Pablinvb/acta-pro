@@ -31,7 +31,7 @@ function buildRawMessage(options: {
   from?: string;
   subject: string;
   bodyText: string;
-  attachment?: { filename: string; mimeType: string; content: string };
+  attachment?: { filename: string; mimeType: string; content: string | Buffer };
 }): string {
   const boundary = `acta-pro-${Date.now().toString(36)}`;
   const headers = [
@@ -58,7 +58,10 @@ function buildRawMessage(options: {
       `Content-Disposition: attachment; filename="${options.attachment.filename}"`,
       'Content-Transfer-Encoding: base64',
       '',
-      Buffer.from(options.attachment.content, 'utf8').toString('base64'),
+      (Buffer.isBuffer(options.attachment.content)
+        ? options.attachment.content
+        : Buffer.from(options.attachment.content, 'utf8')
+      ).toString('base64'),
       `--${boundary}--`,
     ].join('\r\n');
   } else {
@@ -103,11 +106,16 @@ export function buildMinutesBody(meeting: Meeting, followUpDate?: string): strin
     .join('\n');
 }
 
-/** Envía el acta firmada al representante. Era el workflow 15. */
+/**
+ * Envía el acta firmada al representante. Era el workflow 15.
+ *
+ * Se adjunta el PDF, no el HTML: es lo que el representante puede guardar,
+ * imprimir y presentar si alguna vez hace falta.
+ */
 export async function sendMinutes(
   meeting: Meeting,
   documentCode: string,
-  html: string,
+  pdf: Buffer,
   followUpDate?: string,
 ): Promise<string | null> {
   if (!meeting.representative_email || !EMAIL_RE.test(meeting.representative_email)) {
@@ -120,7 +128,7 @@ export async function sendMinutes(
     to: meeting.representative_email,
     subject: `Acta de reunión — ${meeting.student_name} — ${meeting.date}`,
     bodyText: buildMinutesBody(meeting, followUpDate),
-    attachment: { filename: `${documentCode}.html`, mimeType: 'text/html', content: html },
+    attachment: { filename: `${documentCode}.pdf`, mimeType: 'application/pdf', content: pdf },
   });
 
   await audit.record({

@@ -9,8 +9,10 @@ import * as languageReview from './language-review.service';
 import * as meetingAi from './meeting-ai.service';
 import * as meetings from './meeting.service';
 import * as signatures from './signature.service';
+import * as pdf from './pdf.service';
 import * as speech from './speech.service';
 import * as storage from './storage.service';
+import * as transcriptCleanup from './transcript-cleanup.service';
 import { ServiceError, estadoInvalido } from './errors';
 
 /**
@@ -23,8 +25,8 @@ import { ServiceError, estadoInvalido } from './errors';
  *
  * Las dos cadenas del sistema son:
  *
- *   cerrar reunión →  08 análisis → 09 revisión de lenguaje → 10 borrador
- *   firmar acta    →  13 documento → 14 archivo → 15 envío → 16 seguimiento
+ *   cerrar reunión →  depurar transcripción → análisis → borrador → revisión
+ *   firmar acta    →  documento PDF → archivo → envío → seguimiento
  *
  * Regla que gobierna ambas, heredada del manejador de errores: si un paso
  * falla, **nada de lo ya hecho se deshace**. La reunión queda en
@@ -47,6 +49,12 @@ export async function closeMeetingAndDraft(meetingId: string): Promise<StepResul
   const steps: StepResult[] = [];
 
   try {
+    // Se depura antes de analizar: el modelo extrae mucho mejor los acuerdos de
+    // un texto sin muletillas ni frases a medio empezar. El original queda
+    // intacto como evidencia.
+    const segments = await transcriptCleanup.cleanupMeeting(meetingId);
+    steps.push({ step: 'depuracion', ok: true, detail: `${segments.length} fragmento(s)` });
+
     await meetingAi.analyze(meetingId);
     steps.push({ step: 'analisis', ok: true });
 
@@ -100,13 +108,16 @@ export async function completeAfterSignatures(meetingId: string): Promise<StepRe
     }
   };
 
-  // 13 · Documento final
-  const final = await documents.build(meetingId);
-  steps.push({ step: 'documento_final', ok: true, detail: final.documentCode });
+  // Documento final: el PDF es el formato que se archiva y se envía, porque es
+  // lo que la docente va a imprimir y guardar. El HTML se sigue generando para
+  // quien quiera verlo en pantalla.
+  const final = await pdf.build(meetingId);
+  steps.push({ step: 'documento_final', ok: true, detail: `${final.documentCode}.pdf` });
 
-  // 14 · Archivo del acta, y de la transcripción por separado
+  // Archivo del acta, y de la transcripción por separado. La carpeta del
+  // estudiante se crea aquí si es su primera reunión.
   await run('archivo_acta', async () => {
-    const { document } = await storage.archiveMinutes(meeting, final.documentCode, final.html);
+    const { document } = await storage.archiveMinutes(meeting, final.documentCode, final.pdf);
     return document.drive_path;
   });
 
@@ -122,7 +133,7 @@ export async function completeAfterSignatures(meetingId: string): Promise<StepRe
   const followUpDate = analysis?.follow_up_date ?? undefined;
 
   await run('envio', async () => {
-    await email.sendMinutes(meeting, final.documentCode, final.html, followUpDate);
+    await email.sendMinutes(meeting, final.documentCode, final.pdf, followUpDate);
     return meeting.representative_email;
   });
 

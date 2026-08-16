@@ -73,11 +73,17 @@ export interface ArchiveResult {
   driveFileId: string | null;
 }
 
-/** Archiva el acta final. Nunca incluye la transcripción. */
+/**
+ * Archiva el acta final en PDF. Nunca incluye la transcripción.
+ *
+ * `ensurePath` crea los niveles que falten, así que la primera reunión de un
+ * estudiante crea su carpeta y las siguientes la reutilizan. No hay que
+ * preparar nada por adelantado.
+ */
 export async function archiveMinutes(
   meeting: Meeting,
   documentCode: string,
-  html: string,
+  pdf: Buffer,
 ): Promise<ArchiveResult> {
   const path = buildPath(meeting);
 
@@ -104,11 +110,11 @@ export async function archiveMinutes(
 
     const { data } = await driveApi().files.create({
       requestBody: {
-        name: `${documentCode}.html`,
+        name: `${documentCode}.pdf`,
         parents: [folderId],
-        mimeType: 'text/html',
+        mimeType: 'application/pdf',
       },
-      media: { mimeType: 'text/html', body: Readable.from([html]) },
+      media: { mimeType: 'application/pdf', body: Readable.from([pdf]) },
       fields: 'id',
     });
 

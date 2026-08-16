@@ -86,8 +86,15 @@ export function EnvioClient({
             </div>
             <div className="mx-3.5 mb-3.5 flex items-center gap-2.5 rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs">
               <span aria-hidden>📄</span>
-              <span className="flex-1 font-data">{meeting.meeting_id}.pdf</span>
-              <span className="tabular font-data text-ink-3">184 KB</span>
+              <span className="flex-1 font-data">Acta en PDF</span>
+              <a
+                href={`/api/reuniones/${encodeURIComponent(meeting.meeting_id)}/acta.pdf`}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-md px-2 py-1 font-medium text-accent transition hover:bg-accent-soft"
+              >
+                Ver
+              </a>
             </div>
           </div>
         </Card>
@@ -173,11 +180,30 @@ export function EnvioClient({
 
         {signed ? (
           <>
-            <Banner tone="ok" title="Acta firmada y en curso">
+            <Banner tone="ok" title="Acta firmada, archivada y enviada">
               <p className="mt-0.5">
-                n8n ya tiene todo lo que necesita. No hace falta ninguna acción más aquí.
+                Ya está en la carpeta del estudiante en Drive y en el correo del representante.
               </p>
             </Banner>
+
+            {/* Para imprimirla y guardarla en la carpeta física. */}
+            <a
+              href={`/api/reuniones/${encodeURIComponent(meeting.meeting_id)}/acta.pdf?descargar`}
+              role="button"
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[10px] border border-accent bg-accent px-4 text-sm font-medium text-accent-on transition hover:brightness-110"
+            >
+              <span aria-hidden>⬇</span> Descargar el acta en PDF
+            </a>
+            <a
+              href={`/api/reuniones/${encodeURIComponent(meeting.meeting_id)}/acta.pdf`}
+              target="_blank"
+              rel="noreferrer"
+              role="button"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-[10px] border border-line-strong bg-surface px-4 text-sm font-medium transition hover:bg-surface-2"
+            >
+              Abrir para imprimir
+            </a>
+
             <Link
               href="/agenda"
               role="button"
@@ -190,8 +216,8 @@ export function EnvioClient({
           <>
             <Banner tone="warn" title="Falta firmar el acta">
               <p className="mt-0.5">
-                El envío no se dispara desde aquí: lo encadena n8n cuando el workflow 12 recibe las
-                dos firmas.
+                El archivo en Drive y el envío al representante ocurren automáticamente al
+                registrarse las dos firmas.
               </p>
             </Banner>
             <Link
