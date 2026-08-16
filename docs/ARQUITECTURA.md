@@ -211,7 +211,7 @@ separado.
 | Interfaz (6 pantallas, iPad) | Funcionando |
 | Servicios | Funcionando en modo demostración |
 | Persistencia en memoria | Funcionando |
-| Persistencia en PostgreSQL | Esquema definido; adaptador pendiente |
+| Persistencia en PostgreSQL | Funcionando · 33 comprobaciones contra Postgres real |
 | Google Calendar / Drive / Gmail | Implementado, sin verificar contra las APIs reales |
 | OpenAI (transcripción y análisis) | Implementado, sin verificar contra la API real |
 | Runachay | Contrato implementado; esquema de respuesta aún desconocido |
@@ -222,7 +222,7 @@ separado.
 
 ## Hoja de ruta
 
-- **Ahora**: adaptador de PostgreSQL y verificación de las integraciones reales.
+- **Ahora**: verificar las integraciones externas contra sus APIs reales.
 - **Después**: almacén de usuarios e identidad institucional.
 - **Fase 3**: diarización automática de hablantes.
 - **Fase 4**: firma digital avanzada con validez legal.

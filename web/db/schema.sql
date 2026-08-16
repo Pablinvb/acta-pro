@@ -91,15 +91,22 @@ CREATE TABLE transcript_segments (
   id                BIGSERIAL PRIMARY KEY,
   meeting_id        TEXT NOT NULL REFERENCES meetings(meeting_id),
   segment_at        TIMESTAMPTZ NOT NULL,
+  -- Lo que devolvió el reconocimiento de voz. NUNCA se modifica: es la
+  -- evidencia de lo que se dijo.
   text              TEXT NOT NULL,
+  -- Versión depurada, sin muletillas. Derivada y regenerable.
+  clean_text        TEXT,
   confidence_score  REAL,
+  -- Etiqueta anónima que devuelve la separación de voces: «A», «B», «C».
+  speaker_tag       TEXT,
+  -- Nombre real, una vez la docente ha dicho a quién corresponde la etiqueta.
   speaker           TEXT,
-  -- La confirmación manual es el mecanismo en Fase 1: la diarización
-  -- automática llega en Fase 3.
   speaker_confirmed BOOLEAN NOT NULL DEFAULT false,
   flagged_by_teacher BOOLEAN NOT NULL DEFAULT false,
   UNIQUE (meeting_id, segment_at)
 );
+
+CREATE INDEX transcript_speaker_tag_idx ON transcript_segments (meeting_id, speaker_tag);
 
 CREATE INDEX transcript_meeting_idx ON transcript_segments (meeting_id, segment_at);
 
@@ -154,6 +161,10 @@ CREATE TABLE documents (
   document_code  TEXT PRIMARY KEY,
   meeting_id     TEXT NOT NULL REFERENCES meetings(meeting_id),
   student_id     TEXT NOT NULL REFERENCES students(student_id),
+  -- Desnormalizado a propósito: el repositorio busca por nombre sin tener que
+  -- resolver el estudiante en cada resultado, y el nombre que consta en un acta
+  -- archivada no debe cambiar si mañana se corrige el del estudiante.
+  student_name   TEXT NOT NULL,
   meeting_type   TEXT NOT NULL,
   document_date  DATE NOT NULL,
   drive_file_id  TEXT,
@@ -189,3 +200,36 @@ CREATE TABLE audit_logs (
 );
 
 CREATE INDEX audit_meeting_idx ON audit_logs (meeting_id, occurred_at DESC);
+
+-- ── Vista de lectura ───────────────────────────────────────────────────────
+-- La aplicación trabaja con la reunión como una sola cosa: nombres incluidos y
+-- participantes dentro. Las tablas están normalizadas; esta vista hace de
+-- puente para que ningún servicio tenga que montar el mismo JOIN otra vez.
+CREATE VIEW meetings_read AS
+SELECT
+  m.meeting_id,
+  m.teacher_id,
+  m.student_id,
+  t.name  AS teacher_name,
+  s.name  AS student_name,
+  s.course,
+  COALESCE(r.name, '')  AS representative_name,
+  COALESCE(r.email, '') AS representative_email,
+  m.meeting_type,
+  to_char(m.meeting_date, 'YYYY-MM-DD') AS date,
+  to_char(m.start_time, 'HH24:MI')      AS start_time,
+  to_char(m.end_time, 'HH24:MI')        AS end_time,
+  m.status,
+  m.data_status,
+  m.school_year,
+  m.reminder_sent_at,
+  COALESCE(
+    (SELECT json_agg(json_build_object('role', p.role, 'name', p.name, 'present', p.present)
+                     ORDER BY p.name)
+     FROM participants p WHERE p.meeting_id = m.meeting_id),
+    '[]'::json
+  ) AS participants
+FROM meetings m
+JOIN teachers t ON t.teacher_id = m.teacher_id
+JOIN students s ON s.student_id = m.student_id
+LEFT JOIN representatives r ON r.representative_id = m.representative_id;

@@ -66,11 +66,14 @@ está en [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md).
 
 ## Estado
 
-Interfaz, servicios y persistencia en memoria funcionan de principio a fin. Lo
-que falta antes de usarlo con reuniones reales:
+Interfaz, servicios y persistencia funcionan de principio a fin. La base de
+datos está verificada con 33 comprobaciones contra PostgreSQL real
+(`npm --prefix web run verify:db`).
 
-- Adaptador de PostgreSQL (el esquema ya está definido).
-- Verificar las integraciones de Google y OpenAI contra las APIs reales.
+Lo que falta antes de usarlo con reuniones reales:
+
+- **Verificar las integraciones externas** —Deepgram, Google, OpenAI— contra sus
+  APIs. Están implementadas, pero no probadas: hacen falta credenciales.
 - Almacén de usuarios: hoy la autenticación usa una contraseña compartida.
 - El esquema de respuesta de Runachay sigue sin conocerse.
 

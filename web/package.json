@@ -2,13 +2,14 @@
   "name": "acta-pro-web",
   "version": "0.1.0",
   "private": true,
-  "description": "Interfaz web de ACTA PRO — Fase 1. Consume los workflows de n8n del repositorio.",
+  "description": "ACTA PRO — interfaz, servicios y API de la aplicación.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify:db": "node --conditions=react-server db/verify.mts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1111.0",
@@ -23,6 +24,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.5",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.10.0",
     "@types/pdfkit": "^0.17.6",

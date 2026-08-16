@@ -235,10 +235,42 @@ documento que la persona no puede leer sería inaceptable.
 
 ## Persistencia
 
-`ACTA_PRO_PERSISTENCE=memory` funciona hoy de principio a fin y es con lo que se
-desarrolla. El adaptador de PostgreSQL está pendiente; el esquema completo está
-en [`db/schema.sql`](db/schema.sql) y `getRepositories()` falla en voz alta si se
-selecciona `postgres`, en lugar de fingir que existe.
+`ACTA_PRO_PERSISTENCE=memory` (por defecto) funciona de principio a fin y es con
+lo que se desarrolla, pero el estado muere al reiniciar.
+
+Para persistencia real:
+
+```bash
+psql "$DATABASE_URL" -f web/db/schema.sql
+```
+
+y `ACTA_PRO_PERSISTENCE=postgres` con `DATABASE_URL` en `.env.local`.
+
+### Verificación
+
+```bash
+npm --prefix web run verify:db
+```
+
+Ejecuta `schema.sql` y el adaptador completo contra **PostgreSQL de verdad**,
+usando PGlite —Postgres compilado a WASM que corre en el propio proceso—, así
+que no hace falta ni servidor ni Docker. Son 33 comprobaciones sobre el
+comportamiento que importa, no sobre que compile: que volver a sincronizar una
+reunión no la duplique, que `retry_required` no borre nada, que reenviar un
+fragmento de audio no lo duplique, que una sola decisión atribuya todas las
+intervenciones de una voz, que volver a firmar sustituya en lugar de acumular, y
+que la búsqueda del repositorio ignore las tildes.
+
+### Dos decisiones grabadas en el esquema
+
+- **No hay un solo `DELETE`** en el adaptador. Lo más destructivo posible es
+  marcar `status = 'retry_required'`.
+- **`transcript_segments` es una tabla aparte**, pensada para permisos
+  distintos: conceder acceso a `meetings` no debe dar acceso a lo que se dijo.
+
+Las reuniones se leen de la vista `meetings_read`, que ya trae los nombres y los
+participantes agregados, para que ningún servicio tenga que montar el mismo
+JOIN.
 
 Las decisiones de revisión en curso se guardan en `sessionStorage` para que una
 recarga no las pierda. Se usa `sessionStorage` y no `localStorage` a propósito:
