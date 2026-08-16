@@ -2,78 +2,93 @@ import 'server-only';
 import type { TranscriptSegment } from '@/lib/types';
 import { getRepositories } from '@/repositories';
 import * as audit from './audit.service';
-import { isDemo, openaiTranscriptionModel } from './config';
-import { integracionFallida, invalido } from './errors';
-import { openai } from './openai.client';
+import { isDemo } from './config';
+import { invalido } from './errors';
+import { getTranscriptionProvider } from './transcription/index';
 
 /**
  * Transcripción — antes workflow 06.
  *
- * Recibe fragmentos de audio durante la reunión, uno a uno, y los transcribe
- * sin esperar a que la reunión termine. Esa decisión se conserva del workflow y
- * es deliberada: si algo falla a mitad, se pierde un fragmento, no la grabación
- * entera.
+ * Recibe fragmentos de audio durante la reunión, uno a uno, sin esperar a que
+ * termine. Es deliberado: si algo falla a mitad, se pierde un fragmento, no la
+ * grabación entera.
  *
- * El texto se guarda en el repositorio de transcripciones, que está separado
- * del acta y pensado para tener permisos propios. La transcripción nunca se
- * adjunta a un correo ni se archiva junto al documento final.
+ * El proveedor concreto se elige por configuración. Con Deepgram cada
+ * intervención llega con una etiqueta anónima de hablante («A», «B»); con
+ * Whisper no llega ninguna y la docente asigna a mano. El resto del sistema no
+ * necesita saber cuál está activo.
+ *
+ * El texto se guarda en el repositorio de transcripciones, separado del acta y
+ * pensado para tener permisos propios.
  */
 
-const MAX_CHUNK_BYTES = 25 * 1024 * 1024; // Límite de la API de transcripción.
+const MAX_CHUNK_BYTES = 25 * 1024 * 1024;
 
 export interface TranscribeInput {
   meetingId: string;
   audio: Blob;
   /** Instante en que se cerró el fragmento. */
   timestamp: string;
-  /** Participantes presentes, para orientar la asignación de hablante. */
+  /** Participantes presentes: mejora la separación de voces y el vocabulario. */
   expectedParticipants: string[];
-  filename?: string;
 }
 
-export async function transcribeChunk(input: TranscribeInput): Promise<TranscriptSegment> {
-  const { meetingId, audio, timestamp } = input;
+export async function transcribeChunk(input: TranscribeInput): Promise<TranscriptSegment[]> {
+  const { meetingId, audio, timestamp, expectedParticipants } = input;
 
   if (audio.size === 0) throw invalido('El fragmento de audio está vacío.');
   if (audio.size > MAX_CHUNK_BYTES) {
     throw invalido('El fragmento de audio es demasiado grande. Reduce la duración de cada tramo.');
   }
 
-  const text = isDemo ? '' : await callModel(audio, input.filename ?? 'chunk.webm');
+  const repos = getRepositories();
 
-  const segment: TranscriptSegment = {
+  if (isDemo) {
+    const segment: TranscriptSegment = {
+      meeting_id: meetingId,
+      timestamp,
+      text: '',
+      confidence_score: null,
+      speaker_confirmed: false,
+    };
+    await repos.transcripts.append(segment);
+    return [segment];
+  }
+
+  const provider = getTranscriptionProvider();
+  const result = await provider.transcribe(audio, {
+    language: 'es',
+    diarize: provider.supportsDiarization,
+    expectedSpeakers: expectedParticipants.length || undefined,
+    // Los nombres propios se transcriben fatal si no se avisan.
+    vocabulary: expectedParticipants,
+  });
+
+  const base = new Date(timestamp).getTime();
+  const segments: TranscriptSegment[] = result.segments.map((s) => ({
     meeting_id: meetingId,
-    timestamp,
-    text,
-    confidence_score: null,
-    // El hablante lo confirma la docente: el servicio no lo adivina. Atribuir
-    // una frase a la persona equivocada es peor que no atribuirla.
-    speaker: undefined,
+    // El proveedor da segundos relativos al fragmento; se convierten a instante
+    // absoluto para que toda la reunión quede en una sola línea de tiempo.
+    timestamp: new Date(base + Math.round(s.start * 1000)).toISOString(),
+    text: s.text,
+    confidence_score: s.confidence ?? null,
+    speaker_tag: s.speaker_tag,
+    // La etiqueta no es un nombre: hasta que la docente diga quién es cada voz,
+    // el fragmento sigue sin hablante confirmado.
     speaker_confirmed: false,
-  };
+  }));
 
-  await getRepositories().transcripts.append(segment);
+  for (const segment of segments) {
+    await repos.transcripts.append(segment);
+  }
+
   await audit.record({
     meetingId,
     service: 'speech',
-    event: `fragmento transcrito (${Math.round(audio.size / 1024)} KB)`,
+    event: `fragmento transcrito con ${provider.name}: ${segments.length} intervención(es), ${result.speakerTags.length} voz/voces`,
   });
 
-  return segment;
-}
-
-async function callModel(audio: Blob, filename: string): Promise<string> {
-  try {
-    const file = new File([audio], filename, { type: audio.type || 'audio/webm' });
-    const result = await openai().audio.transcriptions.create({
-      model: openaiTranscriptionModel,
-      file,
-      language: 'es',
-    });
-    return result.text ?? '';
-  } catch (error) {
-    throw integracionFallida('El servicio de transcripción', error);
-  }
+  return segments;
 }
 
 export async function listSegments(meetingId: string): Promise<TranscriptSegment[]> {

@@ -1,91 +1,42 @@
 import 'server-only';
-import { Readable } from 'node:stream';
 import type { ArchivedDocument, Meeting } from '@/lib/types';
 import { getRepositories } from '@/repositories';
 import * as audit from './audit.service';
-import { driveRootFolderId, driveTranscriptFolderId, isDemo } from './config';
-import { driveApi } from './google.client';
-import { integracionFallida, sinConfigurar } from './errors';
+import { isDemo } from './config';
+import { getStorage, minutesPath, transcriptPath } from './storage/index';
 
 /**
- * Archivo en Google Drive — antes workflow 14.
+ * Archivo de documentos — antes workflow 14.
  *
- * Estructura, tal y como la fija la arquitectura:
+ * La lógica de cada destino vive en su adaptador (`storage/drive.adapter.ts`,
+ * `storage/s3.adapter.ts`). Aquí queda solo lo que es igual sea cual sea el
+ * destino: qué se guarda, dónde en términos lógicos, y qué se registra.
  *
- *   ACTA PRO/Docentes/{docente}/{estudiante}/{año lectivo}/{fecha - tipo}
- *
- * Cada estudiante tiene su propio historial.
- *
- * Regla que se respeta aquí sin excepción: **la transcripción no se guarda
- * junto al acta**. Va a una carpeta distinta, con permisos distintos, y por eso
- * son dos funciones separadas con dos carpetas raíz distintas. No es una
- * convención de nombres: son dos destinos que se pueden compartir por separado.
+ * Lo que no cambia nunca: **el acta y la transcripción van por separado**. Son
+ * dos llamadas distintas a dos ubicaciones con permisos distintos. Quien pueda
+ * leer el historial de actas de un estudiante no tiene por qué poder leer lo
+ * que se dijo palabra por palabra.
  */
 
-export function buildPath(meeting: Meeting): string {
-  return [
-    'ACTA PRO',
-    'Docentes',
-    meeting.teacher_name,
-    meeting.student_name,
-    meeting.school_year,
-    `${meeting.date} - ${meeting.meeting_type}`,
-  ].join('/');
-}
-
-/** Busca o crea una carpeta hija. Sin esto, cada archivo crearía un árbol nuevo. */
-async function ensureFolder(name: string, parentId: string): Promise<string> {
-  const drive = driveApi();
-  const escaped = name.replace(/'/g, "\\'");
-
-  const { data } = await drive.files.list({
-    q: `name = '${escaped}' and '${parentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
-    fields: 'files(id)',
-    pageSize: 1,
-  });
-
-  const existing = data.files?.[0]?.id;
-  if (existing) return existing;
-
-  const created = await drive.files.create({
-    requestBody: {
-      name,
-      mimeType: 'application/vnd.google-apps.folder',
-      parents: [parentId],
-    },
-    fields: 'id',
-  });
-
-  if (!created.data.id) throw integracionFallida('Google Drive');
-  return created.data.id;
-}
-
-async function ensurePath(segments: string[], rootId: string): Promise<string> {
-  let parent = rootId;
-  for (const segment of segments) {
-    parent = await ensureFolder(segment, parent);
-  }
-  return parent;
-}
+export { minutesPath as buildPath } from './storage/index';
 
 export interface ArchiveResult {
   document: ArchivedDocument;
-  driveFileId: string | null;
+  fileId: string | null;
 }
 
 /**
- * Archiva el acta final en PDF. Nunca incluye la transcripción.
+ * Archiva el acta en PDF.
  *
- * `ensurePath` crea los niveles que falten, así que la primera reunión de un
- * estudiante crea su carpeta y las siguientes la reutilizan. No hay que
- * preparar nada por adelantado.
+ * La carpeta del estudiante se crea aquí si es su primera reunión: no hay que
+ * preparar nada por adelantado ni recordar hacerlo.
  */
 export async function archiveMinutes(
   meeting: Meeting,
   documentCode: string,
   pdf: Buffer,
 ): Promise<ArchiveResult> {
-  const path = buildPath(meeting);
+  const path = minutesPath(meeting);
 
   const document: ArchivedDocument = {
     meeting_id: meeting.meeting_id,
@@ -99,72 +50,36 @@ export async function archiveMinutes(
 
   if (isDemo) {
     await getRepositories().documents.save(document);
-    return { document, driveFileId: null };
+    return { document, fileId: null };
   }
 
-  if (!driveRootFolderId) throw sinConfigurar('GOOGLE_DRIVE_ROOT_FOLDER_ID');
+  const stored = await getStorage().putMinutes(meeting, documentCode, pdf);
+  await getRepositories().documents.save(document);
+  await audit.record({
+    meetingId: meeting.meeting_id,
+    service: 'storage',
+    event: `acta archivada en ${stored.path}`,
+  });
 
-  try {
-    // El primer segmento ("ACTA PRO") es la carpeta raíz configurada.
-    const folderId = await ensurePath(path.split('/').slice(1, -1), driveRootFolderId);
-
-    const { data } = await driveApi().files.create({
-      requestBody: {
-        name: `${documentCode}.pdf`,
-        parents: [folderId],
-        mimeType: 'application/pdf',
-      },
-      media: { mimeType: 'application/pdf', body: Readable.from([pdf]) },
-      fields: 'id',
-    });
-
-    await getRepositories().documents.save(document);
-    await audit.record({
-      meetingId: meeting.meeting_id,
-      service: 'storage',
-      event: `acta archivada en ${path}`,
-    });
-
-    return { document, driveFileId: data.id ?? null };
-  } catch (error) {
-    throw integracionFallida('Google Drive', error);
-  }
+  return { document, fileId: stored.id };
 }
 
-/**
- * Guarda la transcripción en la ubicación restringida.
- *
- * Carpeta raíz distinta a propósito: quien tenga acceso al historial de actas
- * de un estudiante no tiene por qué poder leer lo que se dijo palabra por
- * palabra en la reunión.
- */
+/** Guarda la transcripción en la ubicación restringida. Nunca junto al acta. */
 export async function archiveTranscript(meeting: Meeting, text: string): Promise<string | null> {
   if (isDemo) return null;
-  if (!driveTranscriptFolderId) throw sinConfigurar('GOOGLE_DRIVE_TRANSCRIPT_FOLDER_ID');
 
-  try {
-    const { data } = await driveApi().files.create({
-      requestBody: {
-        name: `${meeting.meeting_id} - transcripción.txt`,
-        parents: [driveTranscriptFolderId],
-        mimeType: 'text/plain',
-      },
-      media: { mimeType: 'text/plain', body: Readable.from([text]) },
-      fields: 'id',
-    });
+  const stored = await getStorage().putTranscript(meeting, text);
+  await audit.record({
+    meetingId: meeting.meeting_id,
+    service: 'storage',
+    event: 'transcripción archivada en la ubicación restringida',
+  });
 
-    await audit.record({
-      meetingId: meeting.meeting_id,
-      service: 'storage',
-      event: 'transcripción archivada en la ubicación restringida',
-    });
-
-    return data.id ?? null;
-  } catch (error) {
-    throw integracionFallida('Google Drive', error);
-  }
+  return stored.id;
 }
 
 export async function historyForStudent(studentId: string): Promise<ArchivedDocument[]> {
   return getRepositories().documents.listByStudent(studentId);
 }
+
+export { transcriptPath };

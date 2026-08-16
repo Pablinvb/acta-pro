@@ -134,6 +134,48 @@ La identificación automática de hablantes es Fase 3, así que en Fase 1 **la
 confirmación manual es el mecanismo**, no un apaño: la docente estuvo en la
 reunión. Terminar con fragmentos sin confirmar exige una segunda pulsación.
 
+## Transcripción y hablantes
+
+El proveedor se elige con `TRANSCRIPTION_PROVIDER` y se cambia escribiendo un
+adaptador en `services/transcription/`. Nada más del sistema se entera.
+
+| Proveedor | Separa voces |
+|---|---|
+| `deepgram` (por defecto) | Sí |
+| `openai` | No |
+
+Conviene tener clara una distinción que la publicidad de los proveedores mezcla:
+
+> **Diarización ≠ identificación.** Deepgram sabe que hablaron tres personas
+> distintas y devuelve «A», «B», «C». **No sabe que «B» es María López**, porque
+> no la ha oído nunca. Eso no lo hace ningún proveedor.
+
+De ahí que la docente asigne los nombres **una vez por reunión** y no frase por
+frase: `samplesForIdentification` elige la intervención más larga de cada voz
+—un «buenos días» no basta para reconocer a alguien— y a partir de esa decisión
+todos los fragmentos de esa voz quedan atribuidos.
+
+Es lo máximo que la tecnología da hoy con garantías suficientes para un
+documento que alguien va a firmar. Atribuir una frase a la persona equivocada es
+exactamente el error que ACTA PRO existe para evitar.
+
+## Almacenamiento
+
+`ACTA_PRO_STORAGE` elige el destino, y la diferencia la nota la docente:
+
+- **`drive`**: puede abrir la carpeta del estudiante y ver sus actas sin pasar
+  por la aplicación, y compartirlas con dirección.
+- **`s3`**: opaco. Nadie «entra» a un bucket, así que todo acceso pasa por la
+  aplicación, que comprueba la sesión. Más trabajo, pero control de acceso de
+  verdad: un enlace de Drive compartido por error se queda compartido.
+
+El adaptador `s3` cubre AWS S3 y también **Firebase Storage**: los buckets de
+Firebase son buckets de Google Cloud Storage, que expone una API compatible con
+S3 mediante claves HMAC. Sirve igual para Cloudflare R2 o MinIO.
+
+Sea cual sea el destino, **el acta y la transcripción van a ubicaciones
+separadas** con permisos independientes.
+
 ## Depuración de la transcripción
 
 El reconocimiento de voz devuelve el habla tal cual: «eh», «o sea», frases

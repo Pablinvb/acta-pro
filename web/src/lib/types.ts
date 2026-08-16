@@ -109,7 +109,12 @@ export interface TranscriptSegment {
    */
   clean_text?: string;
   confidence_score: number | null;
-  /** Lo rellena el WF 07; hasta entonces queda sin confirmar. */
+  /**
+   * Etiqueta anónima que devuelve la separación de voces: «A», «B», «C». El
+   * proveedor sabe que son personas distintas, no quiénes son.
+   */
+  speaker_tag?: string;
+  /** Nombre real, una vez la docente ha dicho a quién corresponde la etiqueta. */
   speaker?: string;
   speaker_confirmed?: boolean;
   /** Marca manual de la docente durante la reunión. */

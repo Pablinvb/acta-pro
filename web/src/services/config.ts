@@ -63,6 +63,56 @@ export const driveRootFolderId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID ?? '';
  */
 export const driveTranscriptFolderId = process.env.GOOGLE_DRIVE_TRANSCRIPT_FOLDER_ID ?? '';
 
+/* ── Deepgram: transcripción con separación de voces ──────────────────────── */
+
+/**
+ * `nova-2` por defecto y no `nova-3`: su cobertura del español está más
+ * rodada, y aquí se transcribe español ecuatoriano hablado en un aula, con
+ * ruido y varias personas. Cambiable con DEEPGRAM_MODEL cuando se compruebe
+ * que otro va mejor.
+ */
+export const deepgramModel = process.env.DEEPGRAM_MODEL ?? 'nova-2';
+
+export function requireDeepgramKey(): string {
+  const key = process.env.DEEPGRAM_API_KEY;
+  if (!key) throw sinConfigurar('DEEPGRAM_API_KEY');
+  return key;
+}
+
+/* ── Almacenamiento de objetos (S3 / Firebase / R2) ───────────────────────── */
+
+export const storageDriver: 'drive' | 's3' =
+  process.env.ACTA_PRO_STORAGE === 's3' ? 's3' : 'drive';
+
+export interface S3Config {
+  bucket: string;
+  region: string;
+  /** Vacío para AWS; `https://storage.googleapis.com` para Firebase/GCS. */
+  endpoint: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+}
+
+export function requireS3(): S3Config {
+  const bucket = process.env.S3_BUCKET;
+  const accessKeyId = process.env.S3_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+
+  if (!bucket || !accessKeyId || !secretAccessKey) {
+    throw sinConfigurar(
+      'el almacenamiento de objetos (S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY)',
+    );
+  }
+
+  return {
+    bucket,
+    region: process.env.S3_REGION ?? 'us-east-1',
+    endpoint: process.env.S3_ENDPOINT ?? '',
+    accessKeyId,
+    secretAccessKey,
+  };
+}
+
 /* ── Runachay ─────────────────────────────────────────────────────────────── */
 
 export interface RunachayConfig {
