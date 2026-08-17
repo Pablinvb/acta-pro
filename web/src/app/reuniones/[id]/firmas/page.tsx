@@ -26,7 +26,7 @@ export default async function FirmasPage({ params }: { params: Promise<{ id: str
         <PageHead
           title="Firmas"
           subtitle="Ambas partes firman en este dispositivo, al terminar la reunión"
-          tag="WF 12 SIGNATURES"
+          tag="FIRMA DIGITAL"
         />
         <FirmasClient
           meeting={meeting}

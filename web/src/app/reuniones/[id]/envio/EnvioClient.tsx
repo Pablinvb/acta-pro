@@ -9,19 +9,18 @@ import type { FollowUp, Meeting } from '@/lib/types';
 /**
  * Envío y archivo.
  *
- * Esta pantalla NO dispara el envío: los workflows 13, 14 y 15 no exponen
- * webhook. Se encadenan en n8n cuando el workflow 12 recibe las dos firmas y
- * pone la reunión en `status = signed`. Así que aquí se muestra qué va a pasar
- * (y dónde), y si falta firmar se manda al paso 05 en lugar de ofrecer un botón
- * que no llamaría a nada.
+ * Esta pantalla no dispara nada: el archivo y el envío se encadenan solos en
+ * cuanto se registran las dos firmas. Así que muestra qué va a ocurrir y dónde,
+ * y si falta firmar manda al paso de firmas en lugar de ofrecer un botón que no
+ * haría nada.
  */
 
 const PIPELINE = [
-  { wf: 'WF 12', label: 'Firmas registradas', detail: 'Docente y representante' },
-  { wf: 'WF 13', label: 'Documento final generado', detail: 'HTML → PDF' },
-  { wf: 'WF 14', label: 'Archivado en Google Drive', detail: 'Carpeta del estudiante' },
-  { wf: 'WF 15', label: 'Enviado por Gmail', detail: 'Al correo del representante' },
-  { wf: 'WF 16', label: 'Seguimiento creado', detail: 'Evento en Calendar' },
+  { servicio: 'firmas', label: 'Firmas registradas', detail: 'Docente y representante' },
+  { servicio: 'documento', label: 'Documento final generado', detail: 'Acta en PDF' },
+  { servicio: 'archivo', label: 'Archivada', detail: 'En la carpeta del estudiante' },
+  { servicio: 'correo', label: 'Enviada al representante', detail: 'Con el PDF adjunto' },
+  { servicio: 'seguimiento', label: 'Seguimiento creado', detail: 'Evento en Calendar' },
 ];
 
 export function EnvioClient({
@@ -57,7 +56,7 @@ export function EnvioClient({
     <div className="flex items-start gap-3.5 max-lg:flex-col">
       {/* ── El correo que saldrá ── */}
       <div className="flex min-w-0 flex-1 flex-col gap-3.5 max-lg:w-full">
-        <Card title="Correo al representante" tag="WF 15">
+        <Card title="Correo al representante" >
           <div className="overflow-hidden rounded-[10px] border border-line">
             <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-b border-line bg-surface-2 px-3.5 py-3 text-xs">
               <dt className="text-ink-3">Para</dt>
@@ -91,7 +90,7 @@ export function EnvioClient({
                 href={`/api/reuniones/${encodeURIComponent(meeting.meeting_id)}/acta.pdf`}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-md px-2 py-1 font-medium text-accent transition hover:bg-accent-soft"
+                className="rounded-md px-2 py-1 font-medium text-accent-text transition hover:bg-accent-soft"
               >
                 Ver
               </a>
@@ -99,11 +98,11 @@ export function EnvioClient({
           </div>
         </Card>
 
-        <Card title="Qué hace n8n al completar las firmas" tag="WF 12 → 16">
+        <Card title="Qué ocurre al completar las firmas">
           <ol className="stagger flex list-none flex-col">
             {PIPELINE.map((step, i) => (
               <li
-                key={step.wf}
+                key={step.servicio}
                 className={`flex items-center gap-3 py-2.5 text-[13px] ${i > 0 ? 'border-t border-line' : ''}`}
               >
                 <span
@@ -120,7 +119,7 @@ export function EnvioClient({
                   <span className="block font-medium">{step.label}</span>
                   <span className="block text-xs text-ink-3">{step.detail}</span>
                 </span>
-                <WfTag>{step.wf}</WfTag>
+                <WfTag>{step.servicio}</WfTag>
               </li>
             ))}
           </ol>
@@ -131,7 +130,7 @@ export function EnvioClient({
       <div className="flex w-[340px] shrink-0 flex-col gap-3.5 max-lg:w-full">
         <Card
           title="Ubicación en Google Drive"
-          tag="WF 14"
+          
           aside={
             <button
               type="button"
@@ -162,7 +161,7 @@ export function EnvioClient({
           </p>
         </Banner>
 
-        <Card title="Seguimiento automático" tag="WF 16">
+        <Card title="Seguimiento automático" >
           <p className="text-[13px]">Se creará un evento en Google Calendar:</p>
           <p className="mt-1.5 text-[13px] text-ink-2">
             <b>{followUp.date}, 10:00</b> — {followUp.description}
@@ -172,7 +171,7 @@ export function EnvioClient({
         {!canSend && (
           <Banner tone="crit" title="Falta el correo del representante">
             <p className="mt-0.5">
-              El workflow 15 no puede enviar el acta sin un correo verificado. Complétalo en la ficha
+              El acta no se puede enviar sin un correo verificado. Complétalo en la ficha
               previa.
             </p>
           </Banner>
@@ -216,7 +215,7 @@ export function EnvioClient({
           <>
             <Banner tone="warn" title="Falta firmar el acta">
               <p className="mt-0.5">
-                El archivo en Drive y el envío al representante ocurren automáticamente al
+                El archivo y el envío al representante ocurren automáticamente al
                 registrarse las dos firmas.
               </p>
             </Banner>

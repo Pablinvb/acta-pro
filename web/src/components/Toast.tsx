@@ -25,7 +25,7 @@ const TONE: Record<ToastTone, string> = {
   ok: 'border-ok-border bg-ok-soft text-ok',
   warn: 'border-warn-border bg-warn-soft text-warn',
   crit: 'border-crit-border bg-crit-soft text-crit',
-  info: 'border-accent-border bg-accent-soft text-accent',
+  info: 'border-accent-border bg-accent-soft text-accent-text',
 };
 
 const ToastContext = createContext<((t: Omit<Toast, 'id'>) => void) | null>(null);

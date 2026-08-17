@@ -10,87 +10,102 @@
    elige, y nada cuando deja «sistema» — ese caso lo resuelve prefers-color-scheme.
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   Identidad visual de ACTA PRO.
+
+   Azul marino profundo, no negro, con el azul de marca como única fuente de
+   luz. La interfaz es oscura a propósito: el documento —el acta— aparece como
+   papel blanco flotando sobre ella, y ese contraste es el mensaje del producto.
+   Por eso el tema por defecto es el oscuro y el claro es la variante.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 :root {
-  --ground: #f2f4f8;
-  --surface: #ffffff;
-  --surface-2: #f7f9fc;
-  --surface-3: #edf0f7;
-  --border: #dde1ec;
-  --border-strong: #c2c9db;
-  --ink: #171b2b;
-  --ink-2: #414960;
-  --ink-3: #6e7690;
-  --accent: #37469b;
+  --ground: #060d1c;
+  --surface: #0c1730;
+  --surface-2: #112040;
+  --surface-3: #17294c;
+  --border: #1b3560;
+  --border-strong: #2a4b80;
+  --ink: #ffffff;
+  --ink-2: #a8bcd8;
+  --ink-3: #6b83a6;
+  --accent: #1d6ff2;
   --accent-on: #ffffff;
-  --accent-soft: #e7eaf7;
-  --accent-border: #bfc7e9;
-  --ok: #16704f;
-  --ok-soft: #e2f1eb;
-  --ok-border: #a6d4c2;
-  --warn: #8b5804;
-  --warn-soft: #faeeda;
-  --warn-border: #e2c489;
-  --crit: #a8302a;
-  --crit-soft: #fbe7e5;
-  --crit-border: #edb2ac;
-  --shadow-sm: 0 1px 2px rgb(23 27 43 / 0.07);
-  --shadow-md: 0 1px 2px rgb(23 27 43 / 0.06), 0 10px 28px -14px rgb(23 27 43 / 0.35);
+  --accent-soft: #0f2a55;
+  --accent-border: #2a5ca8;
+  /*
+   * El azul de marca funciona como relleno de botón, pero como tinta sobre el
+   * fondo oscuro se queda en 3,9 de contraste: insuficiente para texto pequeño.
+   * Este es el mismo azul aclarado, para cuando el acento *es* el texto.
+   */
+  --accent-text: #63a4ff;
+  --ok: #34d17d;
+  --ok-soft: #0c2a1e;
+  --ok-border: #1c5c3c;
+  --warn: #f0b23c;
+  --warn-soft: #2b2110;
+  --warn-border: #6a4d1c;
+  --crit: #f4736b;
+  --crit-soft: #2d1418;
+  --crit-border: #6d2b32;
+
+  /*
+   * El acta es papel y se ve como papel en cualquier tema. Un documento
+   * institucional que se imprime y se firma no debería cambiar de color según
+   * la preferencia del sistema de quien lo mira.
+   */
+  --paper: #ffffff;
+  --paper-2: #f4f6fa;
+  --paper-ink: #101a2e;
+  --paper-ink-2: #46566f;
+  --paper-line: #d9e0ea;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.5);
+  --shadow-md: 0 2px 6px rgb(0 0 0 / 0.5), 0 16px 40px -20px rgb(0 0 0 / 0.9);
+  /* El resplandor azul es la firma visual: se reserva para lo activo. */
+  --glow: 0 0 0 1px rgb(29 111 242 / 0.35), 0 0 24px -4px rgb(29 111 242 / 0.45);
+  --glow-soft: 0 0 20px -6px rgb(29 111 242 / 0.35);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --ground: #0e1017;
-    --surface: #161926;
-    --surface-2: #1c2030;
-    --surface-3: #222739;
-    --border: #292e41;
-    --border-strong: #3a4159;
-    --ink: #e9ebf4;
-    --ink-2: #b3b9cc;
-    --ink-3: #848ca6;
-    --accent: #8593ee;
-    --accent-on: #0e1017;
-    --accent-soft: #1f2440;
-    --accent-border: #3a4374;
-    --ok: #57c398;
-    --ok-soft: #132a20;
-    --ok-border: #245c45;
-    --warn: #e0a94a;
-    --warn-soft: #2a2113;
-    --warn-border: #5e4a20;
-    --crit: #f0847a;
-    --crit-soft: #2e1918;
-    --crit-border: #6b322d;
-    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
-    --shadow-md: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 28px -14px rgb(0 0 0 / 0.8);
-  }
-}
+/* ── Variante clara ──────────────────────────────────────────────────────── *
 
-:root[data-theme='dark'] {
-  --ground: #0e1017;
-  --surface: #161926;
-  --surface-2: #1c2030;
-  --surface-3: #222739;
-  --border: #292e41;
-  --border-strong: #3a4159;
-  --ink: #e9ebf4;
-  --ink-2: #b3b9cc;
-  --ink-3: #848ca6;
-  --accent: #8593ee;
-  --accent-on: #0e1017;
-  --accent-soft: #1f2440;
-  --accent-border: #3a4374;
-  --ok: #57c398;
-  --ok-soft: #132a20;
-  --ok-border: #245c45;
-  --warn: #e0a94a;
-  --warn-soft: #2a2113;
-  --warn-border: #5e4a20;
-  --crit: #f0847a;
-  --crit-soft: #2e1918;
-  --crit-border: #6b322d;
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
-  --shadow-md: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 28px -14px rgb(0 0 0 / 0.8);
+   Deliberadamente NO se activa con `prefers-color-scheme`. La identidad de ACTA
+   PRO es oscura y así se presenta siempre, venga el sistema como venga.
+
+   Pero se conserva como elección explícita: un aula con sol de frente a mediodía
+   es un caso real, y un docente que no puede leer su acta no tiene por qué
+   aguantar una decisión de marca.
+   ────────────────────────────────────────────────────────────────────────── */
+
+:root[data-theme='light'] {
+  --ground: #eef2f8;
+  --surface: #ffffff;
+  --surface-2: #f5f8fc;
+  --surface-3: #e8eef7;
+  --border: #d5deeb;
+  --border-strong: #b6c5da;
+  --ink: #0a1730;
+  --ink-2: #3c5170;
+  --ink-3: #6b83a6;
+  --accent: #0f56cc;
+  --accent-on: #ffffff;
+  --accent-soft: #e3edfd;
+  --accent-border: #b3cdf7;
+  /* En claro el propio acento ya contrasta de sobra como texto. */
+  --accent-text: #0f4bb3;
+  --ok: #10794c;
+  --ok-soft: #e0f4ea;
+  --ok-border: #a3d8bd;
+  --warn: #8a5a08;
+  --warn-soft: #fbeed7;
+  --warn-border: #e0c288;
+  --crit: #b03028;
+  --crit-soft: #fce7e5;
+  --crit-border: #f0b3ae;
+  --shadow-sm: 0 1px 2px rgb(10 23 48 / 0.08);
+  --shadow-md: 0 2px 6px rgb(10 23 48 / 0.08), 0 16px 40px -22px rgb(10 23 48 / 0.35);
+  --glow: 0 0 0 1px rgb(15 86 204 / 0.25);
+  --glow-soft: 0 0 16px -8px rgb(15 86 204 / 0.4);
 }
 
 @theme inline {
@@ -107,6 +122,7 @@
   --color-accent-on: var(--accent-on);
   --color-accent-soft: var(--accent-soft);
   --color-accent-border: var(--accent-border);
+  --color-accent-text: var(--accent-text);
   --color-ok: var(--ok);
   --color-ok-soft: var(--ok-soft);
   --color-ok-border: var(--ok-border);
@@ -117,6 +133,13 @@
   --color-crit-soft: var(--crit-soft);
   --color-crit-border: var(--crit-border);
 
+  /* El acta: papel, en cualquier tema. */
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-paper-ink: var(--paper-ink);
+  --color-paper-ink-2: var(--paper-ink-2);
+  --color-paper-line: var(--paper-line);
+
   /* Tipografía por función: la interfaz, el documento y los datos.
      El acta usa serif porque es un registro institucional y debe verse
      distinta del software que la produce. */
@@ -126,11 +149,18 @@
 
   --shadow-card: var(--shadow-sm);
   --shadow-float: var(--shadow-md);
+  --shadow-glow: var(--glow);
+  --shadow-glow-soft: var(--glow-soft);
 }
 
 @layer base {
   html {
-    color-scheme: light dark;
+    /* Oscuro salvo que se elija lo contrario: la identidad manda. */
+    color-scheme: dark;
+  }
+
+  :root[data-theme='light'] {
+    color-scheme: light;
   }
 
   body {
@@ -138,6 +168,16 @@
     color: var(--ink);
     font-family: var(--font-ui);
     -webkit-font-smoothing: antialiased;
+    /*
+     * Un halo azul muy tenue arriba a la derecha, como en la identidad. Va
+     * fijo para que no se mueva al desplazar y no compita con el contenido.
+     */
+    background-image: radial-gradient(
+      ellipse 80% 50% at 85% -10%,
+      color-mix(in srgb, var(--accent) 16%, transparent),
+      transparent 70%
+    );
+    background-attachment: fixed;
   }
 
   /* Objetivo táctil mínimo en iPad. */

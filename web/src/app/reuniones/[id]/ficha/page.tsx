@@ -30,7 +30,7 @@ export default async function FichaPage({ params }: { params: Promise<{ id: stri
         <PageHead
           title="Ficha previa"
           subtitle="Preparada automáticamente 30 minutos antes de la reunión"
-          tag="WF 02 RUNACHAY LOOKUP"
+          tag="DATOS DESDE RUNACHAY"
         />
 
         <div className="flex items-start gap-3.5 max-lg:flex-col">
@@ -69,7 +69,7 @@ export default async function FichaPage({ params }: { params: Promise<{ id: stri
               </div>
             </Card>
 
-            <Card title="Actas anteriores de este estudiante" tag="WF 14 DRIVE" bodyClassName="px-4">
+            <Card title="Actas anteriores de este estudiante" tag="ARCHIVO" bodyClassName="px-4">
               <ul className="flex list-none flex-col">
                 {previousDocuments.map((d, i) => (
                   <li
@@ -146,17 +146,17 @@ export default async function FichaPage({ params }: { params: Promise<{ id: stri
                   Estudiante, representante y docente confirmados en Runachay.
                 </p>
                 <p className="mt-1.5">
-                  <WfTag>DATA_STATUS = VERIFIED</WfTag>
+                  <WfTag>DATOS VERIFICADOS</WfTag>
                 </p>
               </Banner>
             ) : (
               <Banner tone="crit" title="Falta el correo del representante">
                 <p className="mt-0.5">
-                  Sin este dato el workflow 15 no podrá enviar el acta. Complétalo antes de iniciar
+                  Sin este dato el acta no se podrá enviar. Complétalo antes de iniciar
                   la reunión.
                 </p>
                 <p className="mt-1.5">
-                  <WfTag>DATA_STATUS = MANUAL_VERIFICATION_REQUIRED</WfTag>
+                  <WfTag>PENDIENTE DE VERIFICACIÓN MANUAL</WfTag>
                 </p>
               </Banner>
             )}

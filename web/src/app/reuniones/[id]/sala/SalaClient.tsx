@@ -9,7 +9,7 @@ import type { Meeting, TranscriptSegment } from '@/lib/types';
 import { IdentificarVoces } from './IdentificarVoces';
 import { RevisarAtribucion } from './RevisarAtribucion';
 
-/** Duración de cada fragmento de audio, en milisegundos (WF 06). */
+/** Duración de cada fragmento de audio, en milisegundos. */
 const CHUNK_MS = 30_000;
 
 type RecordingState = 'idle' | 'starting' | 'recording' | 'paused' | 'stopped' | 'error';
@@ -92,7 +92,7 @@ export function SalaClient({
     feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight, behavior: 'smooth' });
   }, [segments.length, marks.length]);
 
-  /* ── Envío de un fragmento al WF 06 ── */
+  /* ── Envío de un fragmento a transcribir ── */
   const sendChunk = useCallback(
     async (blob: Blob) => {
       const index = ++chunkIndex.current;
@@ -142,7 +142,7 @@ export function SalaClient({
         if (!res.ok) {
           toast({
             tone: 'warn',
-            title: `Fragmento ${index} no llegó a n8n`,
+            title: `Fragmento ${index} no llegó al servidor`,
             detail: 'La grabación continúa. Solo se perdió este tramo.',
           });
         }
@@ -164,7 +164,7 @@ export function SalaClient({
     setError(null);
     setState('starting');
 
-    // El WF 05 marca la reunión como in_progress antes de grabar nada.
+    // La reunión se marca como en curso antes de grabar nada.
     try {
       await fetch(`/api/reuniones/${encodeURIComponent(meeting.meeting_id)}/iniciar`, {
         method: 'POST',
@@ -545,7 +545,7 @@ export function SalaClient({
                           s.speaker
                             ? 'border-ok-border bg-ok-soft text-ok'
                             : s.speaker_tag
-                              ? 'border-accent-border bg-accent-soft text-accent'
+                              ? 'border-accent-border bg-accent-soft text-accent-text'
                               : 'border-line bg-surface-2 text-ink-3'
                         }`}
                       >
@@ -563,7 +563,7 @@ export function SalaClient({
                 <li key={m} className="my-1 grid grid-cols-[64px_1fr] gap-3 rounded-lg bg-accent-soft px-2.5 py-2.5">
                   <span className="tabular pt-0.5 font-data text-[11px] text-ink-3">{m}</span>
                   <span>
-                    <span className="block text-[11px] font-bold tracking-wide text-accent uppercase">
+                    <span className="block text-[11px] font-bold tracking-wide text-accent-text uppercase">
                       Marca manual de la docente
                     </span>
                     <span className="mt-0.5 block text-[13px] text-ink-2">
@@ -579,8 +579,8 @@ export function SalaClient({
         <footer className="flex flex-wrap items-center gap-2 border-t border-line px-4 py-2.5">
           <WfTag>
             {isMock
-              ? 'MODO DEMOSTRACIÓN · NO SE ENVÍA AUDIO A N8N'
-              : 'WF 06 AUDIO-CHUNK · WF 07 SPEAKER IDENTIFICATION'}
+              ? 'MODO DEMOSTRACIÓN · NO SE ENVÍA AUDIO'
+              : 'TRANSCRIPCIÓN CON SEPARACIÓN DE VOCES'}
           </WfTag>
         </footer>
       </Card>

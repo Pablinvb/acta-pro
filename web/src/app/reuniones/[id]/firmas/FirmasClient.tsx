@@ -8,7 +8,7 @@ import { Banner, Button, Card, Label, Pill, WfTag } from '@/components/ui';
 import type { Meeting } from '@/lib/types';
 
 /**
- * Firmas del acta (WF 12).
+ * Firmas del acta.
  *
  * Ambas firmas se recogen en el mismo dispositivo y en la misma reunión, que es
  * como ocurre de verdad: la representante firma en el iPad antes de irse. El
@@ -65,7 +65,7 @@ export function FirmasClient({
       toast({
         tone: 'ok',
         title: 'Acta firmada',
-        detail: 'n8n continúa con el documento final, el archivo y el envío.',
+        detail: 'Continúa el documento final, el archivo y el envío.',
       });
       router.refresh();
     } catch {
@@ -121,7 +121,7 @@ export function FirmasClient({
       <Card
         className="min-w-0 flex-1 max-lg:w-full"
         title="Esto es lo que se firma"
-        tag="WF 10 BORRADOR APROBADO"
+        tag="BORRADOR APROBADO"
       >
         <div className="flex flex-col gap-4">
           <div>
@@ -143,7 +143,7 @@ export function FirmasClient({
 
           <Banner tone="accent" title="Lee el acta completa antes de firmar">
             <p className="mt-0.5">
-              La representante tiene derecho a revisar el documento íntegro. Vuelve al paso 04 si
+              La representante tiene derecho a revisar el documento íntegro. Vuelve a la revisión si
               quiere leerlo entero.
             </p>
           </Banner>
@@ -152,7 +152,7 @@ export function FirmasClient({
 
       {/* ── Las firmas ── */}
       <div className="flex w-[400px] shrink-0 flex-col gap-3.5 max-lg:w-full">
-        <Card title="Firmas" tag="WF 12 SIGNATURES">
+        <Card title="Firmas" >
           <div className="flex flex-col gap-4">
             <SignaturePad
               label={`${meeting.teacher_name} — docente`}
@@ -211,12 +211,12 @@ export function FirmasClient({
         </Button>
 
         <p className="text-center text-[11px] leading-relaxed text-ink-3">
-          El workflow 12 exige las dos firmas juntas. Al registrarlas, la reunión pasa a{' '}
-          <span className="font-data">status = signed</span> y n8n encadena el documento final, el
+          El acta se firma entera o no se firma. Al registrar ambas, la reunión pasa a{' '}
+          <span className="font-data">status = signed</span> y se encadena el documento final, el
           archivo en Drive y el envío.
         </p>
         <p className="text-center">
-          <WfTag>WF 12 → 13 → 14 → 15</WfTag>
+          <WfTag>FIRMAS → DOCUMENTO → ARCHIVO → ENVÍO</WfTag>
         </p>
       </div>
     </div>

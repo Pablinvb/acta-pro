@@ -24,12 +24,12 @@ export interface Step {
 export function buildSteps(meetingId: string): Step[] {
   const base = `/reuniones/${encodeURIComponent(meetingId)}`;
   return [
-    { n: '01', label: 'Agenda de reuniones', workflows: 'WF 01 · 03 · 04', href: '/agenda' },
-    { n: '02', label: 'Ficha previa', workflows: 'WF 02 · 03', href: `${base}/ficha` },
-    { n: '03', label: 'Sala de reunión', workflows: 'WF 05 · 06 · 07', href: `${base}/sala` },
-    { n: '04', label: 'Revisión del acta', workflows: 'WF 08 · 09 · 10 · 11', href: `${base}/revision` },
-    { n: '05', label: 'Firmas', workflows: 'WF 12 · 13', href: `${base}/firmas` },
-    { n: '06', label: 'Envío y archivo', workflows: 'WF 14 · 15 · 16', href: `${base}/envio` },
+    { n: '01', label: 'Agenda de reuniones', workflows: 'Calendar · Runachay', href: '/agenda' },
+    { n: '02', label: 'Ficha previa', workflows: 'Datos del estudiante', href: `${base}/ficha` },
+    { n: '03', label: 'Sala de reunión', workflows: 'Grabar y transcribir', href: `${base}/sala` },
+    { n: '04', label: 'Revisión del acta', workflows: 'IA y revisión', href: `${base}/revision` },
+    { n: '05', label: 'Firmas', workflows: 'Firma digital', href: `${base}/firmas` },
+    { n: '06', label: 'Envío y archivo', workflows: 'Archivo y correo', href: `${base}/envio` },
   ];
 }
 
@@ -98,9 +98,10 @@ export function Rail({
               <Link
                 href={step.href}
                 aria-current={current ? 'page' : undefined}
-                className={`group flex min-h-[46px] items-center gap-2.5 rounded-[10px] px-2.5 py-1.5 text-[13.5px] transition-colors duration-150 ${
+                className={`group flex min-h-[46px] items-center gap-2.5 rounded-[10px] px-2.5 py-1.5 text-[13.5px] transition-all duration-150 ${
+                  // El resplandor azul marca lo activo. Se reserva para eso.
                   current
-                    ? 'bg-accent-soft font-semibold text-ink'
+                    ? 'bg-accent-soft font-semibold text-ink shadow-glow-soft'
                     : 'text-ink-2 hover:bg-surface-2 hover:text-ink'
                 }`}
               >

@@ -12,7 +12,7 @@ export default async function RevisionPage({ params }: { params: Promise<{ id: s
   const meeting = findMeeting(decodeURIComponent(id));
   if (!meeting) notFound();
 
-  // Los fragmentos GREEN no piden decisión, así que no se listan: solo cuentan.
+  // Los fragmentos adecuados no piden decisión, así que no se listan: solo cuentan.
   const greenCount = totalFragmentsReviewed - languageFindings.length;
 
   return (

@@ -63,7 +63,7 @@ export default async function AgendaPage() {
         <PageHead
           title="Agenda de reuniones"
           subtitle="Viernes 14 de agosto de 2026 · sincronizado desde Google Calendar"
-          tag="WF 01 CALENDAR INTAKE"
+          tag="SINCRONIZADO CON CALENDAR"
         />
 
         <div className="stagger grid grid-cols-4 gap-3.5 max-md:grid-cols-2">
@@ -73,7 +73,7 @@ export default async function AgendaPage() {
           <Tile label="Seguimientos vencidos" value={dashboardSummary.overdueFollowUps} note="Mateo Chávez · vencía el 11 ago" attention />
         </div>
 
-        <Card title="Hoy" tag="WF 04 REMINDER ACTIVO" bodyClassName="">
+        <Card title="Hoy" tag="RECORDATORIOS ACTIVOS" bodyClassName="">
           <ul className="stagger flex list-none flex-col">
             {meetings.map((m, i) => {
               const state = rowState(m);
@@ -119,7 +119,7 @@ export default async function AgendaPage() {
               completar el dato.
             </p>
             <p className="mt-1.5">
-              <WfTag>DATA_STATUS = MANUAL_VERIFICATION_REQUIRED · WF 02</WfTag>
+              <WfTag>PENDIENTE DE VERIFICACIÓN MANUAL</WfTag>
             </p>
           </Banner>
         )}

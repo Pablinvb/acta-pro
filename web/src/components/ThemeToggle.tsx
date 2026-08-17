@@ -2,43 +2,46 @@
 
 import { useEffect, useState } from 'react';
 
-type Choice = 'system' | 'light' | 'dark';
-
-const NEXT: Record<Choice, Choice> = { system: 'light', light: 'dark', dark: 'system' };
-const LABEL: Record<Choice, string> = { system: 'Sistema', light: 'Claro', dark: 'Oscuro' };
-
 /**
- * Tres estados, no dos. «Sistema» no marca el documento y deja mandar a
- * prefers-color-scheme; una elección explícita escribe `data-theme` y gana en
- * ambos sentidos.
+ * Oscuro o claro.
+ *
+ * Solo dos estados, no tres. La identidad de ACTA PRO es oscura y se presenta
+ * así venga el sistema como venga, de modo que un estado «seguir al sistema» no
+ * significaría nada.
+ *
+ * El claro se conserva porque un aula con sol de frente a mediodía es un caso
+ * real, y un docente que no puede leer su acta no tiene por qué aguantar una
+ * decisión de marca.
  */
 export function ThemeToggle() {
-  const [choice, setChoice] = useState<Choice>('system');
+  const [light, setLight] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem('acta-pro-theme') as Choice | null;
-    if (saved === 'light' || saved === 'dark') setChoice(saved);
+    setLight(localStorage.getItem('acta-pro-theme') === 'light');
+    setReady(true);
   }, []);
 
   useEffect(() => {
+    if (!ready) return;
     const root = document.documentElement;
-    if (choice === 'system') {
+    if (light) {
+      root.setAttribute('data-theme', 'light');
+      localStorage.setItem('acta-pro-theme', 'light');
+    } else {
       root.removeAttribute('data-theme');
       localStorage.removeItem('acta-pro-theme');
-    } else {
-      root.setAttribute('data-theme', choice);
-      localStorage.setItem('acta-pro-theme', choice);
     }
-  }, [choice]);
+  }, [light, ready]);
 
   return (
     <button
       type="button"
-      onClick={() => setChoice((c) => NEXT[c])}
-      className="rounded-lg border border-line-strong bg-surface px-3 text-xs font-medium text-ink-2 transition hover:bg-surface-2"
-      aria-label={`Tema: ${LABEL[choice]}. Pulsa para cambiar.`}
+      onClick={() => setLight((v) => !v)}
+      className="rounded-lg border border-line-strong bg-surface-2 px-3 text-xs font-medium text-ink-2 transition hover:bg-surface-3 hover:text-ink"
+      aria-label={light ? 'Cambiar a tema oscuro' : 'Cambiar a tema claro'}
     >
-      Tema · {LABEL[choice]}
+      {light ? '☾ Oscuro' : '☀ Claro'}
     </button>
   );
 }

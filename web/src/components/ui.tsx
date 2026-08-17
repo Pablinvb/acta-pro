@@ -19,7 +19,7 @@ const TONE: Record<Tone, string> = {
   ok: 'bg-ok-soft border-ok-border text-ok',
   warn: 'bg-warn-soft border-warn-border text-warn',
   crit: 'bg-crit-soft border-crit-border text-crit',
-  accent: 'bg-accent-soft border-accent-border text-accent',
+  accent: 'bg-accent-soft border-accent-border text-accent-text',
 };
 
 export function Pill({ tone = 'neutral', children }: { tone?: Tone; children: ReactNode }) {
@@ -40,9 +40,10 @@ type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const BUTTON: Record<NonNullable<ButtonProps['variant']>, string> = {
-  primary: 'bg-accent border-accent text-accent-on hover:brightness-110',
-  secondary: 'bg-surface border-line-strong text-ink hover:bg-surface-2',
-  danger: 'bg-crit-soft border-crit-border text-crit hover:brightness-[0.97]',
+  // El botón principal es la fuente de luz de la pantalla: lleva el resplandor.
+  primary: 'bg-accent border-accent text-accent-on shadow-glow-soft hover:brightness-110',
+  secondary: 'bg-surface-2 border-line-strong text-ink hover:bg-surface-3',
+  danger: 'bg-crit-soft border-crit-border text-crit hover:brightness-110',
 };
 
 export function Button({ variant = 'secondary', className = '', ...props }: ButtonProps) {

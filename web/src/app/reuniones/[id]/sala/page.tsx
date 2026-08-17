@@ -24,7 +24,7 @@ export default async function SalaPage({ params }: { params: Promise<{ id: strin
         <PageHead
           title="Reunión en curso"
           subtitle="El audio se envía en fragmentos y se transcribe en segundo plano"
-          tag="WF 05 START-MEETING · WF 06 AUDIO-CHUNK"
+          tag="GRABACIÓN Y TRANSCRIPCIÓN"
         />
         <SalaClient
           meeting={meeting}

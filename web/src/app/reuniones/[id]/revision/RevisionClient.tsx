@@ -30,12 +30,18 @@ const LEVEL_LABEL: Record<LanguageLevel, string> = {
 
 const LEVEL_TONE = { GREEN: 'ok', YELLOW: 'warn', RED: 'crit' } as const;
 
-/** Subrayado del fragmento dentro del acta, según su estado. */
+/**
+ * Subrayado del fragmento dentro del acta.
+ *
+ * Colores fijos y no tokens de tema: el acta es papel blanco en cualquier tema,
+ * así que un resaltado pensado para fondo oscuro sería ilegible aquí. Se
+ * mantienen los mismos tres niveles del semáforo, adaptados al papel.
+ */
 const MARK_STYLE: Record<string, string> = {
-  RED: 'bg-crit-soft shadow-[inset_0_-2px_0_var(--crit)]',
-  YELLOW: 'bg-warn-soft shadow-[inset_0_-2px_0_var(--warn)]',
-  applied: 'bg-ok-soft shadow-[inset_0_-2px_0_var(--ok)]',
-  kept: 'shadow-[inset_0_-1px_0_var(--border-strong)]',
+  RED: 'bg-[#fde3e0] shadow-[inset_0_-2px_0_#c0392b]',
+  YELLOW: 'bg-[#fbeecf] shadow-[inset_0_-2px_0_#9a6708]',
+  applied: 'bg-[#dcf3e5] shadow-[inset_0_-2px_0_#12784c]',
+  kept: 'shadow-[inset_0_-1px_0_#c3ccda]',
 };
 
 export function RevisionClient({
@@ -102,7 +108,7 @@ export function RevisionClient({
         detail:
           resolution === 'applied'
             ? 'El acta se actualizó con la redacción sugerida.'
-            : 'Tu decisión queda registrada en el log de auditoría.',
+            : 'Tu decisión queda registrada en la auditoría.',
       });
     },
     [toast, setResolutions],
@@ -152,12 +158,12 @@ export function RevisionClient({
         if (decision === 'reject') {
           setFeedback({
             tone: 'warn',
-            text: 'Acta rechazada. El workflow 11 la devuelve a borrador; no se ha perdido nada.',
+            text: 'Acta rechazada: vuelve a borrador. No se ha perdido nada.',
           });
           toast({ tone: 'warn', title: 'Acta rechazada', detail: 'Vuelve a estado de borrador.' });
           return;
         }
-        // El trabajo ya viajó a n8n: el borrador local deja de hacer falta.
+        // El trabajo ya está en el servidor: el borrador local deja de hacer falta.
         clearDraft();
         toast({
           tone: 'ok',
@@ -177,7 +183,7 @@ export function RevisionClient({
     [minutes.meeting_id, applied, findings, router, toast, clearDraft],
   );
 
-  /* ── Un punto del acta, resaltado si el WF 09 lo marcó ── */
+  /* ── Un punto del acta, resaltado si la revisión de lenguaje lo marcó ── */
   function Item({ text }: { text: string }) {
     const f = byFragment.get(text);
     if (!f) return <li>{text}</li>;
@@ -217,7 +223,7 @@ export function RevisionClient({
   function Section({ section }: { section: MinutesSection }) {
     return (
       <section className="mb-5">
-        <h2 className="mb-2 border-b border-line pb-1.5 font-ui text-[11px] font-bold tracking-[0.09em] text-ink-3 uppercase">
+        <h2 className="mb-2 border-b border-paper-line pb-1.5 font-ui text-[11px] font-bold tracking-[0.09em] text-paper-ink-2 uppercase">
           {section.number} · {section.title}
         </h2>
 
@@ -225,7 +231,7 @@ export function RevisionClient({
           <dl className="grid grid-cols-[auto_1fr_auto_1fr] gap-x-3 gap-y-1 font-ui text-[13px] max-md:grid-cols-[auto_1fr]">
             {section.fields.map((f) => (
               <div key={f.label} className="contents">
-                <dt className="text-ink-3">{f.label}</dt>
+                <dt className="text-paper-ink-2">{f.label}</dt>
                 <dd className="m-0">{f.value}</dd>
               </div>
             ))}
@@ -248,8 +254,10 @@ export function RevisionClient({
 
         {section.title === 'Firmas' && (
           <div className="mt-3 grid grid-cols-2 gap-6 font-ui text-xs max-md:grid-cols-1">
-            <p className="border-t border-line-strong pt-2 text-ink-3">Ana Pérez — Docente</p>
-            <p className="border-t border-line-strong pt-2 text-ink-3">María López — Representante</p>
+            <p className="border-t border-paper-line pt-2 text-paper-ink-2">Ana Pérez — Docente</p>
+            <p className="border-t border-paper-line pt-2 text-paper-ink-2">
+              María López — Representante
+            </p>
           </div>
         )}
       </section>
@@ -259,12 +267,18 @@ export function RevisionClient({
   return (
     <div className="grid h-full grid-cols-[1fr_372px] max-lg:grid-cols-1">
       {/* ── El documento ── */}
-      <div className="overflow-y-auto border-r border-line bg-surface px-6 pt-5.5 pb-16 max-lg:border-r-0 max-lg:border-b">
-        <article className="mx-auto max-w-[63ch] font-doc">
-          <h1 className="mb-1 text-center font-doc text-xl font-semibold tracking-wide uppercase">
+      <div className="overflow-y-auto border-r border-line px-6 pt-5.5 pb-16 max-lg:border-r-0 max-lg:border-b">
+        {/*
+          El acta se ve como papel, no como una pantalla más. Es un documento
+          institucional que alguien va a imprimir y firmar, y ese contraste con
+          la interfaz oscura es lo que lo separa del software que lo produce.
+          Por eso mantiene sus colores en cualquier tema.
+        */}
+        <article className="mx-auto max-w-[70ch] rounded-lg bg-paper px-9 py-10 font-doc text-paper-ink shadow-float">
+          <h1 className="mb-1 text-center font-doc text-xl font-semibold tracking-wide text-paper-ink uppercase">
             Acta de reunión con representante
           </h1>
-          <p className="mb-6 text-center font-data text-[11px] text-ink-3">
+          <p className="mb-6 text-center font-data text-[11px] text-paper-ink-2">
             {minutes.document_code} · Período 2026-2027
           </p>
           {minutes.sections.map((s) => (
@@ -278,7 +292,7 @@ export function RevisionClient({
         <header className="border-b border-line px-4 pt-4 pb-3">
           <h2 className="text-sm font-semibold">Revisión de lenguaje</h2>
           <p className="mt-1 font-data text-[10px] tracking-wider text-ink-3 uppercase">
-            WF 09 · {totalReviewed} fragmentos analizados · la IA solo sugiere
+            {totalReviewed} fragmentos analizados · la IA solo sugiere
           </p>
           <div className="mt-2.5 flex gap-1.5">
             <Pill tone="ok">
@@ -379,7 +393,7 @@ export function RevisionClient({
           ) : openAll.length > 0 ? (
             <Banner tone="warn" title={`${openAll.length} fragmento(s) por revisar`}>
               <p className="mt-0.5">
-                Puedes aprobar, pero la decisión queda en el log de auditoría (WF 17).
+                Puedes aprobar, pero la decisión queda en el registro de auditoría.
               </p>
             </Banner>
           ) : (
@@ -408,7 +422,7 @@ export function RevisionClient({
           </div>
 
           <p className="text-center">
-            <WfTag>WF 11 TEACHER-REVIEW</WfTag>
+            <WfTag>DECISIÓN DE LA DOCENTE</WfTag>
           </p>
         </footer>
       </aside>

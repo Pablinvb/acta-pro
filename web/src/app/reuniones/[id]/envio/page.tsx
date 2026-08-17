@@ -13,11 +13,11 @@ export default async function EnvioPage({ params }: { params: Promise<{ id: stri
   const meeting = findMeeting(decodeURIComponent(id));
   if (!meeting) notFound();
 
-  // Sin correo verificado el WF 15 no puede enviar nada: se dice antes de intentarlo.
+  // Sin correo verificado el acta no se puede enviar: se dice antes de intentarlo.
   const canSend =
     meeting.data_status !== 'manual_verification_required' && !!meeting.representative_email;
 
-  // El WF 12 exige ambas firmas; hasta entonces no arranca el resto del proceso.
+  // Se exigen ambas firmas; hasta entonces no arranca el resto del proceso.
   const signed = signatures.every((s) => s.signed_at !== null);
 
   return (
@@ -29,8 +29,8 @@ export default async function EnvioPage({ params }: { params: Promise<{ id: stri
       <div className="flex flex-col gap-4 p-5.5">
         <PageHead
           title="Envío y archivo"
-          subtitle="Lo dispara n8n al completarse las firmas, no esta pantalla"
-          tag="WF 14 DRIVE · WF 15 GMAIL · WF 16 FOLLOW-UP"
+          subtitle="Se dispara al completarse las firmas, no desde esta pantalla"
+          tag="ARCHIVO · CORREO · SEGUIMIENTO"
         />
         <EnvioClient
           meeting={meeting}
