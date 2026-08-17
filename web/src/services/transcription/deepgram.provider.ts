@@ -30,9 +30,14 @@ interface DeepgramUtterance {
   speaker?: number;
 }
 
+interface DeepgramWord {
+  speaker?: number;
+  speaker_confidence?: number;
+}
+
 interface DeepgramResponse {
   results?: {
-    channels?: Array<{ alternatives?: Array<{ transcript?: string }> }>;
+    channels?: Array<{ alternatives?: Array<{ transcript?: string; words?: DeepgramWord[] }> }>;
     utterances?: DeepgramUtterance[];
   };
   err_msg?: string;
@@ -109,6 +114,19 @@ export const deepgramProvider: TranscriptionProvider = {
 
       const speakerTags = [...new Set(segments.map((s) => s.speaker_tag).filter(Boolean))] as string[];
 
+      /*
+       * Deepgram publica su confianza al atribuir cada palabra a un hablante.
+       * Se promedia porque es el único aviso de que la separación puede no ser
+       * de fiar, y esa información tiene que llegar a quien firma el acta.
+       */
+      const words = data.results?.channels?.[0]?.alternatives?.[0]?.words ?? [];
+      const confidences = words
+        .map((w) => w.speaker_confidence)
+        .filter((c): c is number => typeof c === 'number');
+      const speakerConfidence = confidences.length
+        ? confidences.reduce((a, b) => a + b, 0) / confidences.length
+        : undefined;
+
       return {
         segments,
         text:
@@ -116,6 +134,7 @@ export const deepgramProvider: TranscriptionProvider = {
           segments.map((s) => s.text).join(' '),
         speakerTags,
         language: options?.language ?? 'es',
+        speakerConfidence,
       };
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {

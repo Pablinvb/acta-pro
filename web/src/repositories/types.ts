@@ -47,6 +47,16 @@ export interface MeetingRepository {
  */
 export interface TranscriptRepository {
   append(segment: TranscriptSegment): Promise<void>;
+  /**
+   * Sustituye la transcripción completa de una reunión.
+   *
+   * Los fragmentos de 30 s se diarizan cada uno por su cuenta, así que la
+   * «Voz A» de un fragmento no es la misma persona que la «Voz A» del
+   * siguiente. Al cerrar la reunión se vuelve a transcribir el audio entero de
+   * una vez, y esa pasada —con etiquetas de voz coherentes en toda la reunión—
+   * reemplaza a la de los fragmentos.
+   */
+  replaceAll(meetingId: string, segments: TranscriptSegment[]): Promise<void>;
   listByMeeting(meetingId: string): Promise<TranscriptSegment[]>;
   /** Confirmación de un fragmento suelto, cuando no hay separación de voces. */
   setSpeaker(meetingId: string, timestamp: string, speaker: string): Promise<void>;

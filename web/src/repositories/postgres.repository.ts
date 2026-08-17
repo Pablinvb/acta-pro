@@ -245,6 +245,37 @@ export function createPostgresRepositories(resolve: () => Promise<Db>): Reposito
         );
       },
 
+      async replaceAll(meetingId, segments) {
+        const conn = await db();
+        /*
+         * Única excepción a «nada se borra»: la transcripción por fragmentos se
+         * sustituye por la pasada final sobre el audio completo. No se pierde
+         * información —se reemplaza por otra mejor de lo mismo— y sin esto las
+         * etiquetas de voz serían incoherentes entre fragmentos.
+         */
+        await conn.query('DELETE FROM transcript_segments WHERE meeting_id = $1', [meetingId]);
+        for (const segment of segments) {
+          await conn.query(
+            `INSERT INTO transcript_segments
+               (meeting_id, segment_at, text, clean_text, confidence_score,
+                speaker_tag, speaker, speaker_confirmed, flagged_by_teacher)
+             VALUES ($1, $2::timestamptz, $3, $4, $5, $6, $7, $8, $9)
+             ON CONFLICT (meeting_id, segment_at) DO NOTHING`,
+            [
+              segment.meeting_id,
+              segment.timestamp,
+              segment.text,
+              segment.clean_text ?? null,
+              segment.confidence_score,
+              segment.speaker_tag ?? null,
+              segment.speaker ?? null,
+              segment.speaker_confirmed ?? false,
+              segment.flagged_by_teacher ?? false,
+            ],
+          );
+        }
+      },
+
       async listByMeeting(meetingId) {
         const { rows } = await (await db()).query<Record<string, unknown>>(
           `SELECT meeting_id, to_char(segment_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS timestamp,

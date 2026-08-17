@@ -54,6 +54,7 @@ export function SalaClient({
    * docente está atendiendo a las personas, no clasificando audio.
    */
   const [phase, setPhase] = useState<'meeting' | 'identify'>('meeting');
+  const [finalizing, setFinalizing] = useState(false);
   const [closing, setClosing] = useState(false);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -61,6 +62,15 @@ export function SalaClient({
   const chunkIndex = useRef(0);
   /** Fragmentos seguidos sin voz reconocida. */
   const silentStreak = useRef(0);
+  /**
+   * Todo el audio de la reunión, además de enviarse por fragmentos.
+   *
+   * Hace falta guardarlo porque cada fragmento se diariza por separado: la
+   * «Voz A» del minuto 1 no es la misma persona que la del minuto 2. Solo
+   * transcribiendo la reunión entera de una vez salen etiquetas coherentes.
+   * Cuarenta minutos ocupan unas decenas de megas en memoria.
+   */
+  const fullAudio = useRef<Blob[]>([]);
   const feedRef = useRef<HTMLDivElement | null>(null);
 
   /* ── Cronómetro ── */
@@ -177,7 +187,9 @@ export function SalaClient({
       setStream(media);
       const recorder = new MediaRecorder(media);
       recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) void sendChunk(e.data);
+        if (e.data.size === 0) return;
+        fullAudio.current.push(e.data);
+        void sendChunk(e.data);
       };
       recorder.start(CHUNK_MS);
       recorderRef.current = recorder;
@@ -213,13 +225,77 @@ export function SalaClient({
     }
   }, []);
 
-  /** Cierra la grabación y pasa a identificar las voces. */
+  /**
+   * Cierra la grabación y hace la pasada final sobre el audio completo antes de
+   * identificar voces. Sin esa pasada, las etiquetas de voz serían distintas en
+   * cada fragmento y la identificación no significaría nada.
+   */
   const finish = useCallback(() => {
-    recorderRef.current?.stop();
-    streamRef.current?.getTracks().forEach((t) => t.stop());
+    const recorder = recorderRef.current;
     setState('stopped');
-    setPhase('identify');
-  }, []);
+    setFinalizing(true);
+
+    const run = async () => {
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+
+      const blob = new Blob(fullAudio.current, { type: 'audio/webm' });
+      if (blob.size === 0) {
+        setFinalizing(false);
+        setPhase('identify');
+        return;
+      }
+
+      const form = new FormData();
+      form.append('data', blob, 'reunion.webm');
+
+      try {
+        const res = await fetch(
+          `/api/reuniones/${encodeURIComponent(meeting.meeting_id)}/transcripcion-final`,
+          { method: 'POST', body: form },
+        );
+        const body = await res.json();
+
+        if (!res.ok) {
+          toast({
+            tone: 'crit',
+            title: 'No se pudo procesar la reunión completa',
+            detail: body.message ?? 'Se conserva la transcripción por fragmentos.',
+          });
+        } else if (body.voices <= 1 && meeting.participants.filter((p) => p.present).length > 1) {
+          // Vale la pena interrumpir: significa que habrá que atribuir a mano.
+          toast({
+            tone: 'warn',
+            title: 'No se pudieron separar las voces',
+            detail:
+              'Hablaba más de una persona pero se detectó una sola. Revisa la atribución con cuidado.',
+          });
+        } else if (!body.reliable) {
+          toast({
+            tone: 'warn',
+            title: 'Separación de voces poco fiable',
+            detail: `Confianza ${(body.speakerConfidence * 100).toFixed(0)} %. Comprueba cada voz antes de confirmar.`,
+          });
+        }
+      } catch {
+        toast({
+          tone: 'crit',
+          title: 'Sin conexión con el servidor',
+          detail: 'Se conserva la transcripción por fragmentos.',
+        });
+      } finally {
+        setFinalizing(false);
+        setPhase('identify');
+      }
+    };
+
+    if (recorder && recorder.state !== 'inactive') {
+      // `stop()` emite un último fragmento: hay que esperarlo o se pierde.
+      recorder.onstop = () => void run();
+      recorder.stop();
+    } else {
+      void run();
+    }
+  }, [meeting.meeting_id, meeting.participants, toast]);
 
   /**
    * Cierra la reunión: depura la transcripción, la analiza, genera el borrador
@@ -280,6 +356,21 @@ export function SalaClient({
         participants={meeting.participants}
         onDone={closeMeeting}
       />
+    );
+  }
+
+  if (finalizing) {
+    return (
+      <Card>
+        <p className="py-10 text-center text-[13px] text-ink-3">
+          Procesando la reunión completa para separar las voces…
+          <br />
+          <span className="text-[11px]">
+            Se transcribe entera de una vez: es la única forma de que cada voz sea la misma persona
+            de principio a fin.
+          </span>
+        </p>
+      </Card>
     );
   }
 

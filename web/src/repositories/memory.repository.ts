@@ -130,6 +130,9 @@ export const memoryRepositories: Repositories = {
       list.push(segment);
       store.transcripts.set(segment.meeting_id, list);
     },
+    async replaceAll(id, segments) {
+      store.transcripts.set(id, segments);
+    },
     async listByMeeting(id) {
       return store.transcripts.get(id) ?? [];
     },

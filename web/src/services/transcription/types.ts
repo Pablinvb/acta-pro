@@ -49,6 +49,14 @@ export interface TranscriptionResult {
   /** Etiquetas de hablante distintas detectadas. */
   speakerTags: string[];
   language?: string;
+  /**
+   * Cuánta confianza tiene el proveedor en haber separado bien las voces, de 0
+   * a 1. Es un dato que hay que enseñar, no esconder: comprobado con una
+   * grabación real de dos personas en mono y 17 segundos, Deepgram devolvió
+   * 0,36 de media y metió a las dos en una sola voz. Sin este número, la
+   * interfaz presentaría esa atribución como un hecho.
+   */
+  speakerConfidence?: number;
 }
 
 export interface TranscribeOptions {

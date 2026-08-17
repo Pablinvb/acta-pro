@@ -109,6 +109,77 @@ export async function transcribeChunk(input: TranscribeInput): Promise<Transcrib
   return { segments, silent };
 }
 
+export interface FinalPassResult {
+  segments: TranscriptSegment[];
+  voices: number;
+  /** Confianza media del proveedor al separar voces, de 0 a 1. */
+  speakerConfidence: number | null;
+  /** Por debajo de esto, la atribución no es de fiar y hay que decirlo. */
+  reliable: boolean;
+}
+
+/** Umbral por debajo del cual la separación de voces no se presenta como un hecho. */
+const RELIABLE_SPEAKER_CONFIDENCE = 0.7;
+
+/**
+ * Pasada final sobre el audio completo, al cerrar la reunión.
+ *
+ * Es imprescindible, no una mejora: los fragmentos de 30 s se diarizan cada uno
+ * por separado, de modo que la «Voz A» de un fragmento **no es la misma persona**
+ * que la «Voz A» del siguiente. Solo transcribiendo la reunión entera de una vez
+ * se obtienen etiquetas coherentes de principio a fin, que es lo que permite a
+ * la docente decidir una vez por persona.
+ *
+ * De paso sale mejor: con la reunión completa el proveedor tiene material de
+ * sobra para construir el perfil de cada voz, en lugar de treinta segundos.
+ */
+export async function transcribeFullMeeting(
+  meetingId: string,
+  audio: Blob,
+  expectedParticipants: string[],
+): Promise<FinalPassResult> {
+  if (audio.size === 0) throw invalido('No llegó el audio de la reunión.');
+
+  const provider = getTranscriptionProvider();
+  const result = await provider.transcribe(audio, {
+    language: 'es',
+    diarize: provider.supportsDiarization,
+    expectedSpeakers: expectedParticipants.length || undefined,
+    vocabulary: expectedParticipants,
+  });
+
+  // El instante de inicio se toma de la reunión para que las marcas de tiempo
+  // sigan siendo comparables con lo que se vio durante la grabación.
+  const repos = getRepositories();
+  const previous = await repos.transcripts.listByMeeting(meetingId);
+  const base = previous[0] ? new Date(previous[0].timestamp).getTime() : Date.now();
+
+  const segments: TranscriptSegment[] = result.segments.map((s) => ({
+    meeting_id: meetingId,
+    timestamp: new Date(base + Math.round(s.start * 1000)).toISOString(),
+    text: s.text,
+    confidence_score: s.confidence ?? null,
+    speaker_tag: s.speaker_tag,
+    speaker_confirmed: false,
+  }));
+
+  await repos.transcripts.replaceAll(meetingId, segments);
+
+  const confidence = result.speakerConfidence ?? null;
+  const reliable = confidence === null || confidence >= RELIABLE_SPEAKER_CONFIDENCE;
+
+  await audit.record({
+    meetingId,
+    service: 'speech',
+    event:
+      `transcripción final: ${segments.length} intervención(es), ` +
+      `${result.speakerTags.length} voz/voces` +
+      (confidence === null ? '' : `, confianza de separación ${confidence.toFixed(2)}`),
+  });
+
+  return { segments, voices: result.speakerTags.length, speakerConfidence: confidence, reliable };
+}
+
 export async function listSegments(meetingId: string): Promise<TranscriptSegment[]> {
   return getRepositories().transcripts.listByMeeting(meetingId);
 }
