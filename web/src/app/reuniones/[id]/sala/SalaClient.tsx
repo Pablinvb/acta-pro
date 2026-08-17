@@ -7,6 +7,7 @@ import { Waveform } from '@/components/Waveform';
 import { Avatar, Banner, Button, Card, Pill, WfTag } from '@/components/ui';
 import type { Meeting, TranscriptSegment } from '@/lib/types';
 import { IdentificarVoces } from './IdentificarVoces';
+import { RevisarAtribucion } from './RevisarAtribucion';
 
 /** Duración de cada fragmento de audio, en milisegundos (WF 06). */
 const CHUNK_MS = 30_000;
@@ -53,7 +54,7 @@ export function SalaClient({
    * terminar. Se separan porque son dos tareas distintas: durante la reunión la
    * docente está atendiendo a las personas, no clasificando audio.
    */
-  const [phase, setPhase] = useState<'meeting' | 'identify'>('meeting');
+  const [phase, setPhase] = useState<'meeting' | 'identify' | 'review'>('meeting');
   const [finalizing, setFinalizing] = useState(false);
   const [closing, setClosing] = useState(false);
 
@@ -354,6 +355,22 @@ export function SalaClient({
       <IdentificarVoces
         meetingId={meeting.meeting_id}
         participants={meeting.participants}
+        onDone={() => setPhase('review')}
+      />
+    );
+  }
+
+  /*
+   * Repaso de atribuciones antes de generar el acta. No es un paso opcional:
+   * medido con audio real, la separación automática funde turnos, y el acta
+   * atribuye afirmaciones a personas concretas.
+   */
+  if (phase === 'review') {
+    return (
+      <RevisarAtribucion
+        meetingId={meeting.meeting_id}
+        participants={meeting.participants}
+        onBack={() => setPhase('identify')}
         onDone={closeMeeting}
       />
     );

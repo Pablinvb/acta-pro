@@ -240,7 +240,7 @@ export function IdentificarVoces({
           onClick={() => save(false)}
           disabled={saving || assignedCount === 0}
         >
-          {saving ? 'Guardando…' : 'Confirmar y generar el acta'}
+          {saving ? 'Guardando…' : 'Confirmar y repasar'}
         </Button>
       </div>
 
