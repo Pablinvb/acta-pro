@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { IconShield } from '@/components/icons';
 import { getSession } from '@/lib/session';
 import { LoginForm } from './LoginForm';
 
@@ -21,12 +22,14 @@ export default async function LoginPage() {
         <div className="mb-6 flex items-center gap-3">
           <span
             aria-hidden
-            className="grid size-11 shrink-0 place-items-center rounded-xl bg-accent text-[15px] font-bold text-accent-on"
+            className="grid size-11 shrink-0 place-items-center rounded-xl bg-accent text-accent-on shadow-glow-soft"
           >
-            AP
+            <IconShield className="size-6" />
           </span>
           <div>
-            <h1 className="text-[19px] leading-tight font-semibold tracking-wide">ACTA PRO</h1>
+            <h1 className="text-[19px] leading-tight font-bold tracking-wide">
+              ACTA <span className="text-accent-text">PRO</span>
+            </h1>
             <p className="font-data text-[10px] tracking-wider text-ink-3 uppercase">
               Gestión de reuniones con representantes
             </p>

@@ -61,6 +61,7 @@ export function Card({
   title,
   tag,
   aside,
+  step,
   bodyClassName = 'p-4',
   className = '',
   children,
@@ -68,6 +69,11 @@ export function Card({
   title?: string;
   tag?: string;
   aside?: ReactNode;
+  /**
+   * Número de paso. Solo cuando la tarjeta ocupa un lugar en una secuencia
+   * real: numerar por decorar convierte un número en ruido.
+   */
+  step?: number;
   bodyClassName?: string;
   className?: string;
   children: ReactNode;
@@ -76,8 +82,13 @@ export function Card({
     <section
       className={`overflow-hidden rounded-[14px] border border-line bg-surface shadow-card ${className}`}
     >
-      {(title || tag || aside) && (
+      {(title || tag || aside || step) && (
         <header className="flex items-center gap-2.5 border-b border-line px-4 py-3">
+          {step !== undefined && (
+            <span className="tabular grid size-6 shrink-0 place-items-center rounded-md border border-accent-border bg-accent-soft font-data text-[11px] font-bold text-accent-text">
+              {step}
+            </span>
+          )}
           {title && <h2 className="text-sm font-semibold">{title}</h2>}
           <div className="ml-auto flex items-center gap-2">
             {aside}
@@ -98,7 +109,7 @@ export function Card({
  */
 export function WfTag({ children }: { children: ReactNode }) {
   return (
-    <span className="rounded-md border border-dashed border-line-strong px-2 py-1 font-data text-[10px] tracking-wider text-ink-3">
+    <span className="shrink-0 rounded-md border border-line px-2 py-1 font-data text-[10px] tracking-wider text-ink-3">
       {children}
     </span>
   );
