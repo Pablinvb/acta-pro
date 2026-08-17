@@ -59,6 +59,8 @@ export function SalaClient({
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunkIndex = useRef(0);
+  /** Fragmentos seguidos sin voz reconocida. */
+  const silentStreak = useRef(0);
   const feedRef = useRef<HTMLDivElement | null>(null);
 
   /* ── Cronómetro ── */
@@ -103,6 +105,29 @@ export function SalaClient({
         setChunks((c) =>
           c.map((x) => (x.index === index ? { ...x, state: res.ok ? 'sent' : 'failed' } : x)),
         );
+
+        if (res.ok) {
+          /*
+           * Un fragmento en silencio es normal — hay pausas. Varios seguidos no:
+           * significa micrófono silenciado o idioma mal configurado, y en ambos
+           * casos la reunión se estaría grabando en vano. Vale la pena
+           * interrumpir para avisar.
+           */
+          const body = await res.json();
+          if (body.silent) {
+            silentStreak.current += 1;
+            if (silentStreak.current === 3) {
+              toast({
+                tone: 'crit',
+                title: 'No se está reconociendo voz',
+                detail: 'Comprueba el micrófono: llevas minuto y medio sin transcribir nada.',
+              });
+            }
+          } else {
+            silentStreak.current = 0;
+          }
+        }
+
         if (!res.ok) {
           toast({
             tone: 'warn',

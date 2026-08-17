@@ -33,7 +33,21 @@ export interface TranscribeInput {
   expectedParticipants: string[];
 }
 
-export async function transcribeChunk(input: TranscribeInput): Promise<TranscriptSegment[]> {
+export interface TranscribeResult {
+  segments: TranscriptSegment[];
+  /**
+   * El proveedor aceptó el audio pero no reconoció ni una palabra.
+   *
+   * Pasa con un silencio, que es normal, pero también con el micrófono
+   * silenciado o con el idioma mal configurado — y en esos dos casos la reunión
+   * entera se grabaría en vano. Comprobado contra la API real: Deepgram
+   * responde 200 con transcripción vacía cuando el idioma no corresponde al
+   * audio, así que sin este aviso el fallo sería invisible hasta el final.
+   */
+  silent: boolean;
+}
+
+export async function transcribeChunk(input: TranscribeInput): Promise<TranscribeResult> {
   const { meetingId, audio, timestamp, expectedParticipants } = input;
 
   if (audio.size === 0) throw invalido('El fragmento de audio está vacío.');
@@ -52,7 +66,7 @@ export async function transcribeChunk(input: TranscribeInput): Promise<Transcrip
       speaker_confirmed: false,
     };
     await repos.transcripts.append(segment);
-    return [segment];
+    return { segments: [segment], silent: false };
   }
 
   const provider = getTranscriptionProvider();
@@ -82,13 +96,17 @@ export async function transcribeChunk(input: TranscribeInput): Promise<Transcrip
     await repos.transcripts.append(segment);
   }
 
+  const silent = segments.length === 0;
+
   await audit.record({
     meetingId,
     service: 'speech',
-    event: `fragmento transcrito con ${provider.name}: ${segments.length} intervención(es), ${result.speakerTags.length} voz/voces`,
+    event: silent
+      ? `fragmento sin voz reconocida (${provider.name})`
+      : `fragmento transcrito con ${provider.name}: ${segments.length} intervención(es), ${result.speakerTags.length} voz/voces`,
   });
 
-  return segments;
+  return { segments, silent };
 }
 
 export async function listSegments(meetingId: string): Promise<TranscriptSegment[]> {

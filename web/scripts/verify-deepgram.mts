@@ -23,7 +23,9 @@ const argument = process.argv[2];
 if (!argument) {
   console.error(
     '\nFalta el archivo de audio.\n\n' +
-      '  npm --prefix web run verify:deepgram -- C:\\ruta\\a\\tu\\audio.m4a\n\n' +
+      '  npm --prefix web run verify:deepgram -- C:\\ruta\\a\\tu\\audio.m4a\n' +
+      '  npm --prefix web run verify:deepgram -- audio.m4a en    (para forzar otro idioma)\n' +
+      '  npm --prefix web run verify:deepgram -- https://…/audio.wav\n\n' +
       'Sirve cualquier nota de voz. Lo útil es que hablen al menos dos personas.\n',
   );
   process.exit(1);
@@ -69,6 +71,15 @@ if (!key) {
 
 const model = process.env.DEEPGRAM_MODEL ?? 'nova-2';
 
+/**
+ * Idioma. Por defecto español, que es el de las reuniones.
+ *
+ * Se puede cambiar con un segundo argumento porque importa saberlo: si el
+ * idioma no corresponde al audio, **Deepgram responde 200 con la transcripción
+ * vacía**, sin ningún error. Comprobado contra la API real.
+ */
+const language = process.argv[3] ?? 'es';
+
 /* ── Petición ────────────────────────────────────────────────────────────── */
 
 let audio: Buffer | null = null;
@@ -96,7 +107,7 @@ const mime =
 
 const params = new URLSearchParams({
   model,
-  language: 'es',
+  language,
   diarize: 'true',
   utterances: 'true',
   punctuate: 'true',
@@ -109,7 +120,7 @@ console.log(
     ? `  archivo : ${basename(file)} (${Math.round(audio.length / 1024)} KB, ${mime})`
     : `  audio   : ${file}`,
 );
-console.log(`  modelo  : ${model}\n`);
+console.log(`  modelo  : ${model}   ·   idioma: ${language}\n`);
 
 const started = Date.now();
 const response = await fetch(`https://api.deepgram.com/v1/listen?${params}`, {
@@ -146,7 +157,12 @@ const tags = new Set(utterances.map((u) => u.speaker).filter((s) => s !== undefi
 console.log(`Respondió en ${elapsed}s\n`);
 
 if (utterances.length === 0) {
-  console.log('✗ No devolvió intervenciones. Revisa que el audio tenga voz audible.\n');
+  console.log('✗ No devolvió ninguna intervención, pese a aceptar el audio (200).\n');
+  console.log('  Las dos causas habituales:');
+  console.log(`  · El audio no está en "${language}". Deepgram NO da error en ese caso:`);
+  console.log('    devuelve 200 con la transcripción vacía. Prueba con otro idioma:');
+  console.log(`      npm --prefix web run verify:deepgram -- "${argument}" en`);
+  console.log('  · El audio no tiene voz audible.\n');
   process.exit(1);
 }
 
