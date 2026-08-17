@@ -43,6 +43,16 @@ export function SignaturePad({
   const inked = useRef(false);
   const [hasInk, setHasInk] = useState(false);
 
+  /**
+   * Tinta de la firma.
+   *
+   * Negra y fija, nunca el color de texto de la interfaz. La firma no es un
+   * elemento de la aplicación: es tinta sobre el acta, y el acta es papel
+   * blanco. Tomarla del tema hacía que en tema oscuro se dibujara en blanco
+   * sobre fondo transparente, es decir, una firma invisible en el PDF.
+   */
+  const INK = '#000000';
+
   /** Reajusta el lienzo a su tamaño real en píxeles del dispositivo. */
   const setup = useCallback(() => {
     const canvas = canvasRef.current;
@@ -57,7 +67,7 @@ export function SignaturePad({
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--ink').trim();
+    ctx.strokeStyle = INK;
   }, []);
 
   useEffect(() => {
@@ -141,9 +151,14 @@ export function SignaturePad({
         )}
       </div>
 
+      {/*
+        El pad es papel, no una superficie de la aplicación: se firma con tinta
+        negra y hay que verla mientras se firma. En tema oscuro, un pad oscuro
+        con tinta negra sería firmar a ciegas.
+      */}
       <div
-        className={`relative overflow-hidden rounded-[10px] border transition-colors ${
-          hasInk ? 'border-ok-border bg-ok-soft/30' : 'border-dashed border-line-strong bg-surface-2'
+        className={`relative overflow-hidden rounded-[10px] border-2 bg-paper transition-colors ${
+          hasInk ? 'border-ok' : 'border-dashed border-line-strong'
         } ${disabled ? 'pointer-events-none opacity-50' : ''}`}
       >
         <canvas
@@ -158,13 +173,13 @@ export function SignaturePad({
         />
 
         {!hasInk && (
-          <p className="pointer-events-none absolute inset-0 grid place-items-center text-[13px] text-ink-3">
+          <p className="pointer-events-none absolute inset-0 grid place-items-center text-[13px] text-paper-ink-2">
             Firma aquí con el dedo o el lápiz
           </p>
         )}
 
         {/* Línea de firma, como en el papel. */}
-        <div aria-hidden className="pointer-events-none absolute right-6 bottom-7 left-6 border-b border-line-strong" />
+        <div aria-hidden className="pointer-events-none absolute right-6 bottom-7 left-6 border-b border-paper-line" />
       </div>
     </div>
   );
