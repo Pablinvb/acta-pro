@@ -6,6 +6,7 @@ import * as audit from './audit.service';
 import { isDemo, openaiModel } from './config';
 import { integracionFallida } from './errors';
 import { openai } from './openai.client';
+import { basicCleanup, fixInstitutionalTerms } from './transcript-fixes';
 
 /**
  * Depuración de la transcripción.
@@ -50,21 +51,6 @@ Recibes un arreglo de objetos { timestamp, text } y devuelves un objeto JSON
 { "segments": [ { "timestamp": "...", "clean_text": "..." } ] } con el mismo
 número de elementos y los mismos timestamps.`;
 
-/** Depuración local, suficiente cuando no hay modelo disponible. */
-const FILLERS =
-  /\b(eh+|em+|mmm+|este|o sea|digamos|verdad|no cierto|¿no\?|¿ya\?)\b[,\s]*/gi;
-
-export function basicCleanup(text: string): string {
-  return text
-    .replace(FILLERS, '')
-    // Palabra repetida inmediatamente: "yo yo creo" → "yo creo".
-    .replace(/\b(\w+)(\s+\1\b)+/gi, '$1')
-    .replace(/\s{2,}/g, ' ')
-    .replace(/\s+([,.;:])/g, '$1')
-    .trim()
-    .replace(/^([a-záéíóúñ])/, (c) => c.toUpperCase());
-}
-
 export async function cleanupMeeting(meetingId: string): Promise<TranscriptSegment[]> {
   const repos = getRepositories();
   const segments = await repos.transcripts.listByMeeting(meetingId);
@@ -79,8 +65,9 @@ export async function cleanupMeeting(meetingId: string): Promise<TranscriptSegme
   const byTimestamp = new Map(cleaned.map((c) => [c.timestamp, c.clean_text]));
   for (const segment of segments) {
     const clean = byTimestamp.get(segment.timestamp);
-    // El original queda intacto: solo se rellena el campo derivado.
-    if (clean) segment.clean_text = clean;
+    // El original queda intacto: solo se rellena el campo derivado. Los términos
+    // del centro se corrigen siempre, venga la depuración del modelo o local.
+    if (clean) segment.clean_text = fixInstitutionalTerms(clean);
   }
 
   await audit.record({
@@ -141,3 +128,6 @@ export function readableText(segments: TranscriptSegment[]): string {
     .map((s) => `${s.speaker ?? 'Sin identificar'}: ${s.clean_text ?? s.text}`)
     .join('\n');
 }
+
+/** Reexportadas: las transformaciones puras viven en `transcript-fixes`. */
+export { basicCleanup, fixInstitutionalTerms } from './transcript-fixes';

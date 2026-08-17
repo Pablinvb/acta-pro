@@ -79,6 +79,31 @@ export function requireDeepgramKey(): string {
   return key;
 }
 
+/**
+ * Vocabulario institucional para la transcripción.
+ *
+ * Sin esto el reconocimiento destroza los términos propios del centro. Medido
+ * con una grabación real de una reunión: «Runachay» salió como «Sorronachai» y
+ * «Runner Chai», y «DECE» como «Dese» y «DC». Un acta que menciona «Runner
+ * Chai» no sirve de evidencia de nada.
+ *
+ * Se amplía con ACTA_PRO_VOCABULARIO, separando por comas.
+ */
+export const institutionalVocabulary: string[] = [
+  'Runachay',
+  'DECE',
+  'EGB',
+  'BGU',
+  'acta',
+  'representante',
+  'parcial',
+  'quimestre',
+  ...(process.env.ACTA_PRO_VOCABULARIO ?? '')
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean),
+];
+
 /* ── Almacenamiento de objetos (S3 / Firebase / R2) ───────────────────────── */
 
 export const storageDriver: 'drive' | 's3' =

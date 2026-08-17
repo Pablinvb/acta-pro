@@ -114,6 +114,16 @@ const params = new URLSearchParams({
   smart_format: 'true',
 });
 
+/*
+ * Vocabulario institucional: sin él, «Runachay» sale como «Sorronachai» y
+ * «DECE» como «Dese». El parámetro no es el mismo en toda la familia de
+ * modelos, y pasar el que no toca no da error: Deepgram lo ignora en silencio.
+ */
+const vocabularyParam = model.startsWith('nova-3') ? 'keyterm' : 'keywords';
+for (const term of ['Runachay', 'DECE', 'EGB', 'BGU', 'quimestre']) {
+  params.append(vocabularyParam, term);
+}
+
 console.log(`\nACTA PRO · comprobación de Deepgram`);
 console.log(
   audio

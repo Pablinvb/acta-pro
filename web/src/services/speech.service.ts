@@ -2,7 +2,7 @@ import 'server-only';
 import type { TranscriptSegment } from '@/lib/types';
 import { getRepositories } from '@/repositories';
 import * as audit from './audit.service';
-import { isDemo } from './config';
+import { institutionalVocabulary, isDemo } from './config';
 import { invalido } from './errors';
 import { getTranscriptionProvider } from './transcription/index';
 
@@ -74,8 +74,9 @@ export async function transcribeChunk(input: TranscribeInput): Promise<Transcrib
     language: 'es',
     diarize: provider.supportsDiarization,
     expectedSpeakers: expectedParticipants.length || undefined,
-    // Los nombres propios se transcriben fatal si no se avisan.
-    vocabulary: expectedParticipants,
+    // Nombres propios y términos del centro: sin esto «Runachay» se transcribe
+    // como «Sorronachai» y «DECE» como «Dese». Medido con audio real.
+    vocabulary: [...expectedParticipants, ...institutionalVocabulary],
   });
 
   const base = new Date(timestamp).getTime();
