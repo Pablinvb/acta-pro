@@ -290,9 +290,27 @@ export function RevisionClient({
       {/* ── La revisión de lenguaje ── */}
       <aside className="flex flex-col overflow-hidden bg-surface-2 max-lg:overflow-visible">
         <header className="border-b border-line px-4 pt-4 pb-3">
-          <h2 className="text-sm font-semibold">Revisión de lenguaje</h2>
-          <p className="mt-1 font-data text-[10px] tracking-wider text-ink-3 uppercase">
-            {totalReviewed} fragmentos analizados · la IA solo sugiere
+          <div className="flex items-center gap-2">
+            <span
+              aria-hidden
+              className="grid size-7 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent-text"
+            >
+              <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z" />
+                <path d="M18 15.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" />
+              </svg>
+            </span>
+            <h2 className="text-sm font-semibold">Revisión asistida por IA</h2>
+            <span className="ml-auto">
+              {openAll.length === 0 ? (
+                <Pill tone="ok">Revisada</Pill>
+              ) : (
+                <Pill tone="accent">En revisión</Pill>
+              )}
+            </span>
+          </div>
+          <p className="mt-1.5 text-[11px] text-ink-3">
+            {totalReviewed} fragmentos analizados. La IA propone; tú decides.
           </p>
           <div className="mt-2.5 flex gap-1.5">
             <Pill tone="ok">
@@ -311,65 +329,113 @@ export function RevisionClient({
           {findings.map((f) => {
             const open = f.resolution === 'open';
             return (
+              /*
+               * Detectado → sugerencia → justificación, en ese orden y con esa
+               * forma. La docente no solo necesita saber que algo está mal:
+               * necesita ver qué, por qué, y qué se propone en su lugar. Una
+               * lista de advertencias enseña a obedecer; esto enseña a redactar.
+               */
               <article
                 key={f.id}
                 ref={(el) => {
                   cardRefs.current[f.id] = el;
                 }}
                 onClick={() => focusMark(f.id)}
-                className={`cursor-pointer rounded-[10px] border border-l-[3px] border-line bg-surface p-3 transition ${
-                  f.level === 'RED' ? 'border-l-crit' : 'border-l-warn'
-                } ${!open ? 'border-l-ok opacity-60' : ''} ${
-                  selected === f.id ? 'border-accent-border ring-2 ring-accent-border' : ''
+                /*
+                 * `shrink-0` es imprescindible: los hijos de un contenedor flex
+                 * se comprimen por defecto, y con el `overflow-hidden` que
+                 * redondea las esquinas eso recortaba la sugerencia, la
+                 * justificación y los botones sin dejar rastro.
+                 */
+                className={`animate-card shrink-0 cursor-pointer overflow-hidden rounded-[12px] border bg-surface transition-all ${
+                  !open
+                    ? 'border-ok-border opacity-70'
+                    : selected === f.id
+                      ? 'border-accent-border shadow-glow'
+                      : 'border-line hover:border-line-strong'
                 }`}
               >
-                <div className="mb-2 flex items-center gap-2">
-                  <Pill tone={LEVEL_TONE[f.level]}>{LEVEL_LABEL[f.level]}</Pill>
-                  <span className="ml-auto font-data text-[10px] text-ink-3">
-                    §{f.section}
-                  </span>
-                </div>
-
-                <p className="mb-2 font-doc text-[13.5px] leading-snug">«{f.fragment}»</p>
-                <p className="mb-2.5 text-xs leading-snug text-ink-3">{f.reason}</p>
-
-                <div className="mb-2.5 rounded-lg border border-ok-border bg-ok-soft p-2.5">
-                  <p className="mb-1 text-[9.5px] font-bold tracking-[0.09em] text-ok uppercase">
-                    Redacción sugerida
-                  </p>
-                  <p className="font-doc text-[13.5px] leading-snug">{f.suggested_text}</p>
-                </div>
-
-                {open ? (
-                  <div className="flex gap-1.5">
-                    <Button
-                      variant="primary"
-                      className="min-h-[36px] px-3 text-xs"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        resolve(f.id, 'applied');
-                      }}
-                    >
-                      Aplicar sugerencia
-                    </Button>
-                    <Button
-                      className="min-h-[36px] px-3 text-xs"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        resolve(f.id, 'kept');
-                      }}
-                    >
-                      Mantener original
-                    </Button>
+                {/* Lo detectado */}
+                <div className="p-3.5">
+                  <div className="mb-2.5 flex items-center gap-2">
+                    <span
+                      className={`size-2 shrink-0 rounded-full ${f.level === 'RED' ? 'bg-crit' : 'bg-warn'}`}
+                    />
+                    <span className="text-[12px] font-semibold">
+                      Detectado: {LEVEL_LABEL[f.level].toLowerCase()}
+                    </span>
+                    <span className="ml-auto font-data text-[10px] text-ink-3">§{f.section}</span>
                   </div>
-                ) : (
-                  <p className="flex items-center gap-1.5 text-xs font-semibold text-ok">
-                    ✓{' '}
-                    {f.resolution === 'applied'
-                      ? 'Sugerencia aplicada'
-                      : 'Original mantenido por la docente'}
-                  </p>
-                )}
+
+                  <blockquote
+                    className={`rounded-lg border-l-2 px-3 py-2.5 font-doc text-[13.5px] leading-relaxed ${
+                      f.level === 'RED'
+                        ? 'border-l-crit bg-crit-soft text-ink'
+                        : 'border-l-warn bg-warn-soft text-ink'
+                    }`}
+                  >
+                    {f.fragment}
+                  </blockquote>
+
+                  {/* La flecha hace visible que una cosa sustituye a la otra. */}
+                  <div className="my-2 flex justify-center text-ink-3" aria-hidden>
+                    <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 5v14M6 13l6 6 6-6" />
+                    </svg>
+                  </div>
+
+                  <div className="mb-2.5 flex items-center gap-2">
+                    <span className="size-2 shrink-0 rounded-full bg-ok" />
+                    <span className="text-[12px] font-semibold">Sugerencia de redacción</span>
+                  </div>
+
+                  <blockquote className="rounded-lg border-l-2 border-l-ok bg-ok-soft px-3 py-2.5 font-doc text-[13.5px] leading-relaxed text-ink">
+                    {f.suggested_text}
+                  </blockquote>
+
+                  <div className="mt-2.5">
+                    <p className="text-[10px] font-bold tracking-[0.09em] text-ink-3 uppercase">
+                      Justificación
+                    </p>
+                    <p className="mt-1 text-xs leading-snug text-ink-2">{f.reason}</p>
+                  </div>
+                </div>
+
+                {/* La decisión */}
+                <div className="border-t border-line bg-surface-2 px-3.5 py-2.5">
+                  {open ? (
+                    <div className="flex gap-2">
+                      <Button
+                        className="min-h-[38px] flex-1 px-3 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          resolve(f.id, 'kept');
+                        }}
+                      >
+                        Mantener original
+                      </Button>
+                      <Button
+                        variant="primary"
+                        className="min-h-[38px] flex-1 px-3 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          resolve(f.id, 'applied');
+                        }}
+                      >
+                        ✓ Aplicar sugerencia
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="flex items-center gap-2 text-xs font-semibold text-ok">
+                      <span className="grid size-4 place-items-center rounded-full bg-ok text-[9px] text-white">
+                        ✓
+                      </span>
+                      {f.resolution === 'applied'
+                        ? 'Sugerencia aplicada'
+                        : 'Original mantenido por la docente'}
+                    </p>
+                  )}
+                </div>
               </article>
             );
           })}

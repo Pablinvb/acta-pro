@@ -232,6 +232,25 @@
   to { stroke-dashoffset: 0; }
 }
 
+/* Respiración de las barras de una onda que está grabando ahora mismo. */
+@keyframes wave {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.45); }
+}
+
+.animate-wave {
+  animation: wave 1.1s ease-in-out infinite;
+  transform-origin: center;
+}
+
+/* Entrada de una tarjeta del panel: sube un poco al aparecer. */
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-card { animation: card-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
 .animate-fade-up { animation: fade-up 0.28s ease-out both; }
 .animate-toast-in { animation: toast-in 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
 .animate-mark-pulse { animation: mark-pulse 0.9s ease-out; }
