@@ -15,7 +15,8 @@
     "verify:chain": "node --conditions=react-server scripts/verify-chain.mts",
     "google:url": "node --conditions=react-server scripts/google-oauth.mts url",
     "google:token": "node --conditions=react-server scripts/google-oauth.mts token",
-    "google:check": "node --conditions=react-server scripts/google-oauth.mts check"
+    "google:check": "node --conditions=react-server scripts/google-oauth.mts check",
+    "google:folders": "node --conditions=react-server scripts/google-oauth.mts folders"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1111.0",

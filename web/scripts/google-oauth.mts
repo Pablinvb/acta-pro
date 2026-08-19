@@ -204,37 +204,166 @@ if (accion === 'check') {
   console.log('✓');
 
   const auth = { Authorization: `Bearer ${t.access_token}` };
+
+  /* Qué permisos trae el token de verdad. Es la comprobación que de verdad
+     diagnostica: si algo falla luego, aquí se ve si es por falta de permiso
+     o por otra cosa. */
+  const info = (await (
+    await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${t.access_token}`)
+  ).json()) as { scope?: string };
+  const otorgados = (info.scope ?? '').split(' ').filter(Boolean);
+  const faltan = SCOPES.filter((s) => !otorgados.includes(s));
+
+  console.log('\n  Permisos del token:');
+  for (const s of SCOPES) {
+    const corto = s.replace('https://www.googleapis.com/auth/', '');
+    console.log(`    ${otorgados.includes(s) ? '✓' : '✗ FALTA'}  ${corto}`);
+  }
+  if (faltan.length > 0) {
+    console.error('\n✗ Faltan permisos. Repite `google:url` y concede los tres.\n');
+    process.exit(1);
+  }
+
+  /*
+   * Cada prueba usa un endpoint que el permiso concedido cubre, y ni uno más.
+   *
+   * Importa el detalle: `calendar.events` NO permite listar los calendarios de
+   * la cuenta, y `gmail.send` NO permite leer el perfil del buzón. Probar con
+   * esos endpoints devuelve 403 aunque todo esté bien configurado —parece un
+   * fallo y no lo es—. Pedir permisos más amplios solo para que la prueba pase
+   * sería exactamente al revés de lo que interesa aquí.
+   */
+  console.log('\n  Acceso real:');
   const pruebas: Array<[string, string]> = [
-    ['Calendar', 'https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=1'],
+    ['Calendar', 'https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=1&fields=kind'],
     ['Drive', 'https://www.googleapis.com/drive/v3/files?pageSize=1&fields=files(id)'],
-    ['Gmail', 'https://gmail.googleapis.com/gmail/v1/users/me/profile'],
   ];
 
   let fallos = 0;
   for (const [nombre, url] of pruebas) {
     const r = await fetch(url, { headers: auth });
     if (r.ok) {
-      console.log(`  ✓ ${nombre}`);
+      console.log(`    ✓ ${nombre}`);
     } else {
       fallos++;
       const detalle = await r.text();
-      console.log(`  ✗ ${nombre} (${r.status})`);
-      console.log(`      ${detalle.slice(0, 160)}`);
+      console.log(`    ✗ ${nombre} (${r.status})`);
+      console.log(`        ${detalle.slice(0, 160)}`);
     }
+  }
+
+  /* Gmail no tiene forma de comprobarse sin enviar: `gmail.send` no da acceso
+     de lectura a nada. Se queda en que el permiso está concedido. */
+  console.log('    · Gmail: permiso concedido (solo se confirma al enviar un acta)');
+
+  /* Las dos carpetas de Drive son configuración aparte del OAuth, pero sin
+     ellas el archivado falla igual, así que se avisa aquí. */
+  const carpetas: Array<[string, string | undefined]> = [
+    ['GOOGLE_DRIVE_ROOT_FOLDER_ID', process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID],
+    ['GOOGLE_DRIVE_TRANSCRIPT_FOLDER_ID', process.env.GOOGLE_DRIVE_TRANSCRIPT_FOLDER_ID],
+  ];
+  const sinCarpeta = carpetas.filter(([, v]) => !v);
+  if (sinCarpeta.length > 0) {
+    console.log('\n  ⚠ Faltan carpetas de Drive en .env.local:');
+    for (const [n] of sinCarpeta) console.log(`      ${n}`);
+    console.log('    Créalas con:  npm --prefix web run google:folders');
   }
 
   console.log(
     fallos === 0
-      ? '\n✓ Google configurado. Ya puedes archivar en Drive y enviar el acta por correo.\n'
-      : `\n✗ ${fallos} servicio(s) sin acceso. Revisa que las tres APIs estén activadas y los tres permisos concedidos.\n`,
+      ? '\n✓ Google configurado.\n'
+      : `\n✗ ${fallos} servicio(s) sin acceso.\n`,
   );
   process.exit(fallos === 0 ? 0 : 1);
+}
+
+/* ── 4 · Las dos carpetas de Drive ───────────────────────────────────────── */
+
+/**
+ * El acta y la transcripción van a carpetas SEPARADAS, y esto es una decisión
+ * de fondo, no de orden.
+ *
+ * El acta es el documento que las dos partes firmaron y que ambas pueden ver.
+ * La transcripción es todo lo que se dijo: frases a medias, rectificaciones,
+ * comentarios sobre otros estudiantes. Si acaban en la misma carpeta, cualquier
+ * permiso concedido sobre una alcanza a la otra, y compartir el acta con la
+ * familia acabaría exponiendo la conversación entera.
+ */
+if (accion === 'folders') {
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+  if (!clientId || !clientSecret || !refreshToken) {
+    console.error('\nFaltan las credenciales de Google en web/.env.local.\n');
+    process.exit(1);
+  }
+
+  const tok = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
+    }),
+  });
+  const t = (await tok.json()) as { access_token?: string; error?: string };
+  if (!t.access_token) {
+    console.error(`\n✗ No se pudo renovar el token: ${t.error}\n`);
+    process.exit(1);
+  }
+  const auth = { Authorization: `Bearer ${t.access_token}`, 'Content-Type': 'application/json' };
+  const CARPETA = 'application/vnd.google-apps.folder';
+
+  /**
+   * Reutiliza la carpeta si ya existe, para que ejecutar esto dos veces no
+   * deje carpetas duplicadas y actas repartidas entre ellas.
+   *
+   * Con `drive.file` la búsqueda solo ve lo que creó esta misma aplicación, así
+   * que no puede tropezar con una carpeta del centro que se llame igual.
+   */
+  async function asegurar(nombre: string): Promise<{ id: string; nueva: boolean }> {
+    const q = encodeURIComponent(
+      `name='${nombre.replace(/'/g, "\\'")}' and mimeType='${CARPETA}' and trashed=false`,
+    );
+    const buscar = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=${q}&pageSize=1&fields=files(id)`,
+      { headers: auth },
+    );
+    const encontrado = (await buscar.json()) as { files?: Array<{ id: string }> };
+    const ya = encontrado.files?.[0]?.id;
+    if (ya) return { id: ya, nueva: false };
+
+    const crear = await fetch('https://www.googleapis.com/drive/v3/files?fields=id', {
+      method: 'POST',
+      headers: auth,
+      body: JSON.stringify({ name: nombre, mimeType: CARPETA }),
+    });
+    if (!crear.ok) {
+      console.error(`\n✗ No se pudo crear «${nombre}» (${crear.status})`);
+      console.error(`  ${(await crear.text()).slice(0, 200)}\n`);
+      process.exit(1);
+    }
+    return { id: ((await crear.json()) as { id: string }).id, nueva: true };
+  }
+
+  const raiz = await asegurar('ACTA PRO');
+  const transcripciones = await asegurar('ACTA PRO — Transcripciones');
+
+  console.log('\n  ' + (raiz.nueva ? 'creada  ' : 'ya existía  ') + 'ACTA PRO');
+  console.log('  ' + (transcripciones.nueva ? 'creada  ' : 'ya existía  ') + 'ACTA PRO — Transcripciones');
+  console.log('\nPega estas dos líneas en web/.env.local:\n');
+  console.log(`GOOGLE_DRIVE_ROOT_FOLDER_ID=${raiz.id}`);
+  console.log(`GOOGLE_DRIVE_TRANSCRIPT_FOLDER_ID=${transcripciones.id}\n`);
+  console.log('Las carpetas nacen privadas: solo las ve la cuenta que autorizó.');
+  console.log('Comparte «ACTA PRO» con quien deba verlo; la de transcripciones, con nadie.\n');
+  process.exit(0);
 }
 
 console.error(`
 Uso:
   npm --prefix web run google:url                  imprime el enlace de autorización
   npm --prefix web run google:token -- EL_CODIGO   canjea el código por el refresh token
-  npm --prefix web run google:check                comprueba Calendar, Drive y Gmail
+  npm --prefix web run google:check                comprueba permisos, Calendar y Drive
+  npm --prefix web run google:folders              crea las dos carpetas de Drive
 `);
 process.exit(1);
