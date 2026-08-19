@@ -63,19 +63,19 @@ export const driveRootFolderId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID ?? '';
  */
 export const driveTranscriptFolderId = process.env.GOOGLE_DRIVE_TRANSCRIPT_FOLDER_ID ?? '';
 
-/* ── Deepgram: transcripción con separación de voces ──────────────────────── */
+/* ── pyannoteAI: separación de voces ──────────────────────────────────────── */
 
 /**
- * `nova-2` por defecto y no `nova-3`: su cobertura del español está más
- * rodada, y aquí se transcribe español ecuatoriano hablado en un aula, con
- * ruido y varias personas. Cambiable con DEEPGRAM_MODEL cuando se compruebe
- * que otro va mejor.
+ * `true` cuando hay separación de voces disponible.
+ *
+ * Si no la hay, la aplicación no se rompe: la transcripción sigue funcionando y
+ * la docente atribuye las intervenciones a mano. Peor, pero honesto.
  */
-export const deepgramModel = process.env.DEEPGRAM_MODEL ?? 'nova-2';
+export const diarizationEnabled = Boolean(process.env.PYANNOTE_API_KEY);
 
-export function requireDeepgramKey(): string {
-  const key = process.env.DEEPGRAM_API_KEY;
-  if (!key) throw sinConfigurar('DEEPGRAM_API_KEY');
+export function requirePyannoteKey(): string {
+  const key = process.env.PYANNOTE_API_KEY;
+  if (!key) throw sinConfigurar('PYANNOTE_API_KEY');
   return key;
 }
 
@@ -83,9 +83,9 @@ export function requireDeepgramKey(): string {
  * Vocabulario institucional para la transcripción.
  *
  * Sin esto el reconocimiento destroza los términos propios del centro. Medido
- * con una grabación real de una reunión: «Runachay» salió como «Sorronachai» y
- * «Runner Chai», y «DECE» como «Dese» y «DC». Un acta que menciona «Runner
- * Chai» no sirve de evidencia de nada.
+ * con grabaciones reales: «Runachay» ha salido como «Sorronachai» y «Runner
+ * Chai», y «DECE» como «Dese» y «DC». Se pasa como pista al transcriptor y
+ * además se corrige de forma determinista en `transcript-fixes`.
  *
  * Se amplía con ACTA_PRO_VOCABULARIO, separando por comas.
  */
@@ -103,22 +103,6 @@ export const institutionalVocabulary: string[] = [
     .map((t) => t.trim())
     .filter(Boolean),
 ];
-
-/* ── pyannoteAI: separación de voces ──────────────────────────────────────── */
-
-/**
- * `true` cuando hay separación de voces disponible.
- *
- * Si no la hay, la aplicación no se rompe: la transcripción sigue funcionando y
- * la docente atribuye las intervenciones a mano. Peor, pero honesto.
- */
-export const diarizationEnabled = Boolean(process.env.PYANNOTE_API_KEY);
-
-export function requirePyannoteKey(): string {
-  const key = process.env.PYANNOTE_API_KEY;
-  if (!key) throw sinConfigurar('PYANNOTE_API_KEY');
-  return key;
-}
 
 /* ── Almacenamiento de objetos (S3 / Firebase / R2) ───────────────────────── */
 

@@ -1,6 +1,5 @@
 import 'server-only';
 import { sinConfigurar } from '../errors';
-import { deepgramProvider } from './deepgram.provider';
 import { openaiProvider } from './openai.provider';
 import type { TranscriptionProvider } from './types';
 
@@ -14,7 +13,6 @@ export * from './types';
  * sistema cambia.
  */
 const PROVIDERS: Record<string, TranscriptionProvider> = {
-  [deepgramProvider.name]: deepgramProvider,
   [openaiProvider.name]: openaiProvider,
   openai: openaiProvider,
 };

@@ -84,63 +84,14 @@ if (wRes.ok) {
   const detalle = await wRes.text();
   console.log('✗');
   if (wRes.status === 429) {
-    console.log('   La cuenta de OpenAI no tiene saldo. La clave es válida.');
+    console.error('   La cuenta de OpenAI no tiene saldo. La clave es válida.');
+  } else if (wRes.status === 401) {
+    console.error('   La clave de OpenAI no es válida.');
   } else {
-    console.log(`   ${wRes.status}: ${detalle.slice(0, 200)}`);
+    console.error(`   ${wRes.status}: ${detalle.slice(0, 300)}`);
   }
-
-  /*
-   * El motor de alineación no depende de quién transcriba: solo necesita
-   * palabras con marca de tiempo. Deepgram también las da, así que la cadena se
-   * puede demostrar igual mientras la cuenta de OpenAI no tenga saldo.
-   */
-  const dgKey = process.env.DEEPGRAM_API_KEY;
-  if (!dgKey) {
-    console.error('\nSin OpenAI ni Deepgram no hay transcripción posible.\n');
-    process.exitCode = 1;
-    throw new Error('sin transcriptor');
-  }
-
-  process.stdout.write('Deepgram transcribiendo (sustituto)… ');
-  const p = new URLSearchParams({
-    model: 'nova-2',
-    language: 'es',
-    punctuate: 'true',
-    smart_format: 'true',
-    utterances: 'true',
-  });
-  for (const t of ['Runachay', 'DECE', 'EGB', 'quimestre']) p.append('keywords', t);
-
-  const dg = await fetch(`https://api.deepgram.com/v1/listen?${p}`, {
-    method: 'POST',
-    headers: { Authorization: `Token ${dgKey}`, 'Content-Type': 'audio/mp4' },
-    body: new Uint8Array(audio),
-  });
-  const dj = (await dg.json()) as {
-    results?: {
-      utterances?: Array<{ start: number; end: number; transcript: string }>;
-      channels?: Array<{
-        alternatives?: Array<{
-          words?: Array<{ word: string; punctuated_word?: string; start: number; end: number }>;
-        }>;
-      }>;
-    };
-  };
-  const palabras = (dj.results?.channels?.[0]?.alternatives?.[0]?.words ?? []).map((w) => ({
-    word: w.punctuated_word ?? w.word,
-    start: w.start,
-    end: w.end,
-  }));
-  whisper = {
-    segments: (dj.results?.utterances ?? []).map((u) => ({
-      start: u.start,
-      end: u.end,
-      text: u.transcript,
-    })),
-    words: palabras,
-    motor: 'Deepgram (sustituto de Whisper)',
-  };
-  console.log('✓');
+  process.exitCode = 1;
+  throw new Error('Whisper no respondió');
 }
 
 console.log(`   ${whisper.motor}: ${whisper.segments.length} frases · ${whisper.words.length} palabras con marca de tiempo`);
