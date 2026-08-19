@@ -99,7 +99,50 @@ function bestTurn(
     }
   }
 
-  return { speaker: mejor, share: Math.max(0, (mayor - segundo) / duration) };
+  if (mejor !== null) {
+    return { speaker: mejor, share: Math.max(0, (mayor - segundo) / duration) };
+  }
+
+  /*
+   * Ninguna coincidencia: la palabra cae en el silencio entre dos turnos.
+   *
+   * Los diarizadores recortan los bordes de cada turno, así que una palabra a
+   * caballo entre dos queda huérfana. Dejarla «sin identificar» parte la frase
+   * en tres —«¿Ha visto algo» / «que» / «le ha llamado la atención?»— y en
+   * pantalla parece un error del sistema.
+   *
+   * Se asigna al turno más cercano, pero con confianza reducida por la
+   * distancia: a más silencio, menos seguridad, y a partir de cierto punto se
+   * marca para que la revise la docente.
+   */
+  return nearestTurn(turns, start, end);
+}
+
+/** Margen en segundos dentro del cual una palabra huérfana se adopta. */
+const ORPHAN_WINDOW_SECONDS = 2;
+
+function nearestTurn(
+  turns: SpeakerTurn[],
+  start: number,
+  end: number,
+): { speaker: string | null; share: number } {
+  let cercano: string | null = null;
+  let distancia = Infinity;
+
+  for (const turn of turns) {
+    const d = start > turn.end ? start - turn.end : turn.start > end ? turn.start - end : 0;
+    if (d < distancia) {
+      distancia = d;
+      cercano = turn.speaker;
+    }
+  }
+
+  if (cercano === null || distancia > ORPHAN_WINDOW_SECONDS) {
+    return { speaker: null, share: 0 };
+  }
+
+  // Pegada a un turno vale casi tanto como estar dentro; lejos, casi nada.
+  return { speaker: cercano, share: Math.max(0, 1 - distancia / ORPHAN_WINDOW_SECONDS) * 0.9 };
 }
 
 /**
