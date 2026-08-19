@@ -2,9 +2,13 @@ import 'server-only';
 import type { TranscriptSegment } from '@/lib/types';
 import { getRepositories } from '@/repositories';
 import * as audit from './audit.service';
-import { institutionalVocabulary, isDemo } from './config';
+import { diarizationEnabled, institutionalVocabulary, isDemo } from './config';
 import { invalido } from './errors';
+import { align, uncertainCount } from './transcription/alignment';
+import type { DiarizationResult } from './transcription/diarization';
+import { pyannoteProvider } from './transcription/pyannote.provider';
 import { getTranscriptionProvider } from './transcription/index';
+import type { TranscriptionResult } from './transcription/types';
 
 /**
  * Transcripción — antes workflow 06.
@@ -142,12 +146,25 @@ export async function transcribeFullMeeting(
   if (audio.size === 0) throw invalido('No llegó el audio de la reunión.');
 
   const provider = getTranscriptionProvider();
-  const result = await provider.transcribe(audio, {
-    language: 'es',
-    diarize: provider.supportsDiarization,
-    expectedSpeakers: expectedParticipants.length || undefined,
-    vocabulary: expectedParticipants,
-  });
+
+  /*
+   * Las dos preguntas se hacen a la vez porque son independientes:
+   *   Whisper  → qué se dijo y cuándo
+   *   pyannote → quién habló y cuándo
+   * y el motor de alineación las cruza después. Encadenarlas duplicaría la
+   * espera sin ganar nada.
+   */
+  const [result, diarization] = await Promise.all([
+    provider.transcribe(audio, {
+      language: 'es',
+      diarize: provider.supportsDiarization,
+      expectedSpeakers: expectedParticipants.length || undefined,
+      // Nombres propios y términos del centro: sin esto «Runachay» se
+      // transcribe como «Sorronachai» y «DECE» como «Dese». Medido con audio real.
+      vocabulary: [...expectedParticipants, ...institutionalVocabulary],
+    }),
+    diarizeIfAvailable(audio, expectedParticipants.length),
+  ]);
 
   // El instante de inicio se toma de la reunión para que las marcas de tiempo
   // sigan siendo comparables con lo que se vio durante la grabación.
@@ -155,30 +172,91 @@ export async function transcribeFullMeeting(
   const previous = await repos.transcripts.listByMeeting(meetingId);
   const base = previous[0] ? new Date(previous[0].timestamp).getTime() : Date.now();
 
-  const segments: TranscriptSegment[] = result.segments.map((s) => ({
-    meeting_id: meetingId,
-    timestamp: new Date(base + Math.round(s.start * 1000)).toISOString(),
-    text: s.text,
-    confidence_score: s.confidence ?? null,
-    speaker_tag: s.speaker_tag,
-    speaker_confirmed: false,
-  }));
+  /*
+   * Con turnos de un diarizador se alinea palabra a palabra, y las frases que
+   * mezclan a dos personas se parten donde cambia el turno. Sin ellos se
+   * conserva lo que devolvió el transcriptor, sin hablante.
+   */
+  const alineadas = diarization?.turns.length
+    ? align(
+        result.segments.map((s) => ({ text: s.text, start: s.start, end: s.end, words: s.words })),
+        diarization.turns,
+      )
+    : null;
+
+  const segments: TranscriptSegment[] = alineadas
+    ? alineadas.map((u) => ({
+        meeting_id: meetingId,
+        timestamp: new Date(base + Math.round(u.start * 1000)).toISOString(),
+        text: u.text,
+        confidence_score: u.confidence,
+        speaker_tag: u.speaker ?? undefined,
+        speaker_confirmed: false,
+      }))
+    : result.segments.map((s) => ({
+        meeting_id: meetingId,
+        timestamp: new Date(base + Math.round(s.start * 1000)).toISOString(),
+        text: s.text,
+        confidence_score: s.confidence ?? null,
+        speaker_tag: s.speaker_tag,
+        speaker_confirmed: false,
+      }));
 
   await repos.transcripts.replaceAll(meetingId, segments);
 
-  const confidence = result.speakerConfidence ?? null;
-  const reliable = confidence === null || confidence >= RELIABLE_SPEAKER_CONFIDENCE;
+  const voces = alineadas
+    ? new Set(alineadas.map((u) => u.speaker).filter(Boolean)).size
+    : result.speakerTags.length;
+
+  /*
+   * Con alineación, la confianza es la media del margen de cada intervención;
+   * sin ella, la que reporte el transcriptor. Y lo que de verdad decide si se
+   * avisa a la docente es cuántas intervenciones quedaron dudosas, no un
+   * promedio: una media buena puede esconder tres frases mal atribuidas.
+   */
+  const dudosas = alineadas ? uncertainCount(alineadas) : 0;
+  const confidence = alineadas
+    ? alineadas.reduce((a, u) => a + u.confidence, 0) / Math.max(alineadas.length, 1)
+    : (result.speakerConfidence ?? null);
+
+  const reliable =
+    confidence === null
+      ? true
+      : confidence >= RELIABLE_SPEAKER_CONFIDENCE && dudosas <= Math.ceil(segments.length * 0.1);
 
   await audit.record({
     meetingId,
     service: 'speech',
     event:
-      `transcripción final: ${segments.length} intervención(es), ` +
-      `${result.speakerTags.length} voz/voces` +
-      (confidence === null ? '' : `, confianza de separación ${confidence.toFixed(2)}`),
+      `transcripción final: ${segments.length} intervención(es), ${voces} voz/voces` +
+      (diarization ? ` (separadas con ${pyannoteProvider.name})` : ' (sin separación de voces)') +
+      (confidence === null ? '' : `, confianza ${confidence.toFixed(2)}`) +
+      (dudosas > 0 ? `, ${dudosas} por revisar` : ''),
   });
 
-  return { segments, voices: result.speakerTags.length, speakerConfidence: confidence, reliable };
+  return { segments, voices: voces, speakerConfidence: confidence, reliable };
+}
+
+/**
+ * Separa las voces si hay servicio disponible.
+ *
+ * Un fallo aquí no interrumpe la reunión: se pierde la atribución automática,
+ * no la transcripción. La docente atribuirá a mano, que es peor pero honesto —
+ * y desde luego mejor que perder lo que se dijo.
+ */
+async function diarizeIfAvailable(
+  audio: Blob,
+  expectedSpeakers: number,
+): Promise<DiarizationResult | null> {
+  if (isDemo || !diarizationEnabled) return null;
+  try {
+    return await pyannoteProvider.diarize(audio, {
+      expectedSpeakers: expectedSpeakers || undefined,
+    });
+  } catch (error) {
+    console.error('[acta-pro] no se pudieron separar las voces:', error);
+    return null;
+  }
 }
 
 export async function listSegments(meetingId: string): Promise<TranscriptSegment[]> {

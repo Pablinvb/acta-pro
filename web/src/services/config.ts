@@ -104,6 +104,22 @@ export const institutionalVocabulary: string[] = [
     .filter(Boolean),
 ];
 
+/* ── pyannoteAI: separación de voces ──────────────────────────────────────── */
+
+/**
+ * `true` cuando hay separación de voces disponible.
+ *
+ * Si no la hay, la aplicación no se rompe: la transcripción sigue funcionando y
+ * la docente atribuye las intervenciones a mano. Peor, pero honesto.
+ */
+export const diarizationEnabled = Boolean(process.env.PYANNOTE_API_KEY);
+
+export function requirePyannoteKey(): string {
+  const key = process.env.PYANNOTE_API_KEY;
+  if (!key) throw sinConfigurar('PYANNOTE_API_KEY');
+  return key;
+}
+
 /* ── Almacenamiento de objetos (S3 / Firebase / R2) ───────────────────────── */
 
 export const storageDriver: 'drive' | 's3' =
