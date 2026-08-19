@@ -20,10 +20,14 @@
  * que el modelo acierte.
  */
 const INSTITUTIONAL_FIXES: Array<[RegExp, string]> = [
-  [/\b(sorron[ae]?chai|runner\s*chai|runa\s*ch[ai]i?|runachai)\b/gi, 'Runachay'],
+  // Medido: Deepgram escribe «Sorronachai» y «Runner Chai»; Whisper acierta
+  // «runachay» pero en minúscula.
+  [/\b(sorron[ae]?chai|runner\s*chai|runa\s*ch[ai]i?|runachai|runachay)\b/gi, 'Runachay'],
+  // «DECE» sale como «Dese» (Deepgram) o «DC» (Whisper). Se corrige el
+  // acrónimo suelto: en un acta escolar ecuatoriana no significa otra cosa.
   [/\bdese\b/gi, 'DECE'],
-  [/\bel\s+d\.?\s?c\.?\b/gi, 'el DECE'],
   [/\bd\.?\s?c\.?\s?e\.?\b/gi, 'DECE'],
+  [/\bd\.?\s?c\.?\b(?=\s|,|\.|$)/gi, 'DECE'],
   [/\be\.?\s?g\.?\s?b\.?\b/gi, 'EGB'],
 ];
 
