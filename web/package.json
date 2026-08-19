@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "verify:db": "node --conditions=react-server db/verify.mts",
     "verify:deepgram": "node --conditions=react-server scripts/verify-deepgram.mts",
-    "verify:alignment": "node --conditions=react-server scripts/verify-alignment.mts"
+    "verify:alignment": "node --conditions=react-server scripts/verify-alignment.mts",
+    "verify:pyannote": "node --conditions=react-server scripts/verify-pyannote.mts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1111.0",
