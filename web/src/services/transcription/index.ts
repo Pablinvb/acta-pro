@@ -20,9 +20,19 @@ const PROVIDERS: Record<string, TranscriptionProvider> = {
 };
 
 export function getTranscriptionProvider(): TranscriptionProvider {
-  // Deepgram por defecto: es el único de los dos que separa voces, y sin eso la
-  // docente tendría que asignar el hablante de cada frase a mano.
-  const configured = process.env.TRANSCRIPTION_PROVIDER ?? 'deepgram';
+  /*
+   * Whisper por defecto, por decisión de producto.
+   *
+   * Transcribe muy bien en español, pero NO separa voces: no devuelve ninguna
+   * etiqueta de hablante. La consecuencia no es cosmética — con un solo
+   * micrófono y sin datos de quién habla, no hay forma honesta de dibujar una
+   * onda por persona, y la atribución de cada intervención recae entera en la
+   * docente al cerrar la reunión.
+   *
+   * Deepgram sigue disponible con TRANSCRIPTION_PROVIDER=deepgram para cuando
+   * la separación automática compense su coste.
+   */
+  const configured = process.env.TRANSCRIPTION_PROVIDER ?? 'openai';
   const provider = PROVIDERS[configured];
 
   if (!provider) {

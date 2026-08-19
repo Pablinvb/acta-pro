@@ -394,6 +394,76 @@ export const followUp: FollowUp = {
   description: 'Seguimiento del plan de refuerzo · Juan Pérez López',
 };
 
+/* ── Seguimiento de compromisos ───────────────────────────────────────────── */
+
+export type CommitmentState = 'completado' | 'en_progreso' | 'pendiente';
+
+export interface CommitmentStep {
+  /** Semana relativa: 0 es esta semana. */
+  week: number;
+  label: string;
+  state: CommitmentState;
+}
+
+export interface CommitmentTrack {
+  person: string;
+  role: string;
+  /** Fecha límite del compromiso completo. */
+  due: string;
+  steps: CommitmentStep[];
+}
+
+/**
+ * Quién se comprometió a qué y cómo va.
+ *
+ * Se organiza por persona y no por tarea porque es como la docente lo piensa:
+ * «¿la madre está cumpliendo?», no «¿cómo va la tarea 3?». Un acta produce
+ * compromisos de personas concretas, y de eso trata el seguimiento.
+ */
+export const commitmentTracks: CommitmentTrack[] = [
+  {
+    person: 'Ana Pérez',
+    role: 'Docente',
+    due: '2026-09-04',
+    steps: [
+      { week: 0, label: 'Plan de refuerzo entregado', state: 'completado' },
+      { week: 1, label: 'Primera sesión de refuerzo', state: 'en_progreso' },
+      { week: 2, label: 'Registro de asistencia', state: 'pendiente' },
+      { week: 3, label: 'Reporte de avance', state: 'pendiente' },
+    ],
+  },
+  {
+    person: 'María López',
+    role: 'Representante',
+    due: '2026-09-02',
+    steps: [
+      { week: 0, label: 'Revisión del cuaderno', state: 'completado' },
+      { week: 1, label: 'Firma semanal', state: 'completado' },
+      { week: 2, label: 'Horario de estudio en casa', state: 'en_progreso' },
+      { week: 3, label: 'Confirmación de avance', state: 'pendiente' },
+    ],
+  },
+  {
+    person: 'Juan Pérez López',
+    role: 'Estudiante',
+    due: '2026-08-22',
+    steps: [
+      { week: 0, label: 'Tareas pendientes entregadas', state: 'completado' },
+      { week: 1, label: 'Asistencia al refuerzo', state: 'en_progreso' },
+      { week: 2, label: 'Evaluación de recuperación', state: 'pendiente' },
+      { week: 3, label: 'Revisión final', state: 'pendiente' },
+    ],
+  },
+];
+
+/** Las cuatro columnas de la línea de tiempo. */
+export const trackWeeks = [
+  { label: 'Esta semana', date: '14 ago' },
+  { label: 'Próxima', date: '21 ago' },
+  { label: 'Semana 3', date: '28 ago' },
+  { label: 'Semana 4', date: '04 sep' },
+];
+
 function archived(
   meetingId: string,
   studentId: string,

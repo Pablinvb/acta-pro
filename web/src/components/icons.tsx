@@ -84,6 +84,15 @@ export const IconArchive = (p: IconProps) => (
   </Svg>
 );
 
+export const IconTrack = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="6" cy="12" r="2.4" />
+    <circle cx="18" cy="12" r="2.4" />
+    <path d="M8.4 12h7.2" />
+    <path d="M6 9.6V5m12 9.4V19" />
+  </Svg>
+);
+
 export const IconShield = (p: IconProps) => (
   <Svg {...p}>
     <path d="M12 3l7.5 3v5.5c0 4.5-3 8.2-7.5 9.5-4.5-1.3-7.5-5-7.5-9.5V6z" />

@@ -13,6 +13,7 @@ import {
   IconShield,
   IconSignature,
   IconStudent,
+  IconTrack,
 } from './icons';
 import { Avatar } from './ui';
 
@@ -173,6 +174,13 @@ export function Rail({
         Institución
       </p>
       <ul className="flex list-none flex-col gap-0.5 px-2.5 max-lg:hidden">
+        <NavItem
+          href="/seguimiento"
+          current={pathname === '/seguimiento'}
+          label="Seguimiento"
+          hint="Compromisos acordados"
+          Icon={IconTrack}
+        />
         <NavItem
           href="/repositorio"
           current={pathname === '/repositorio'}
