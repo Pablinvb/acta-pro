@@ -28,16 +28,26 @@ export const openaiProvider: TranscriptionProvider = {
         file,
         language: options?.language ?? 'es',
         response_format: 'verbose_json',
+        /*
+         * Marcas por palabra, imprescindibles para el motor de alineación: sin
+         * ellas una frase que mezcla a dos personas se atribuye entera a una,
+         * que es justo el error que rompe un acta.
+         */
+        timestamp_granularities: ['word', 'segment'],
         // Orientar al modelo con los nombres propios evita que los destroce.
         prompt: options?.vocabulary?.join(', '),
       });
 
-      // `verbose_json` trae `segments`; el tipado del SDK no siempre lo refleja.
+      // `verbose_json` trae `segments` y `words`; el tipado del SDK no siempre
+      // los refleja.
       const raw = result as unknown as {
         text?: string;
         language?: string;
         segments?: Array<{ start: number; end: number; text: string }>;
+        words?: Array<{ word: string; start: number; end: number }>;
       };
+
+      const todasLasPalabras = raw.words ?? [];
 
       const segments = (raw.segments ?? []).map((s) => ({
         start: s.start,
@@ -46,6 +56,8 @@ export const openaiProvider: TranscriptionProvider = {
         // Sin diarización no hay etiqueta: se deja vacío en lugar de inventar
         // un hablante, que sería peor que no saberlo.
         speaker_tag: undefined,
+        // Las palabras llegan en una lista aparte; se reparten por tramo.
+        words: todasLasPalabras.filter((w) => w.start >= s.start && w.end <= s.end + 0.01),
       }));
 
       return {

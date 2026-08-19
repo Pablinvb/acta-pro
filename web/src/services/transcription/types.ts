@@ -29,6 +29,12 @@ import 'server-only';
  * es exactamente el error que ACTA PRO existe para evitar.
  */
 
+export interface TranscribedWord {
+  word: string;
+  start: number;
+  end: number;
+}
+
 export interface TranscribedSegment {
   /** Segundos desde el inicio del audio. */
   start: number;
@@ -40,6 +46,15 @@ export interface TranscribedSegment {
    */
   speaker_tag?: string;
   confidence?: number;
+  /**
+   * Marcas de tiempo por palabra.
+   *
+   * Sin esto, el motor de alineación no puede partir una frase donde cambia el
+   * turno, y una intervención que mezcla a dos personas se atribuye entera a
+   * una sola. Es el caso que rompe un acta, así que se piden siempre que el
+   * proveedor las ofrezca.
+   */
+  words?: TranscribedWord[];
 }
 
 export interface TranscriptionResult {
