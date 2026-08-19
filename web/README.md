@@ -166,6 +166,26 @@ menos dos personas y que alguna interrumpa a otra.
 > nova-3. Pasar el que no toca **no da error**: Deepgram lo ignora en silencio y
 > los nombres siguen saliendo mal. El proveedor elige según el modelo.
 
+### Por qué dos servicios y no `gpt-4o-transcribe-diarize`
+
+OpenAI ofrece un modelo que transcribe y separa voces en una sola llamada. Se
+midió contra la misma grabación real de dos minutos que el resto del sistema:
+
+| | Whisper + pyannote | `gpt-4o-transcribe-diarize` |
+|---|---|---|
+| Tiempo | ~10 s (en paralelo) | **54,7 s** |
+| Voces detectadas (hay 2) | **2** | 3 en una ejecución, 4 en otra |
+| Parte la frase que mezcla dos personas | sí | sí |
+| Llamadas | 2 | 1 |
+
+Las voces de más no son un detalle: eran fragmentos de 0,1 y 0,2 segundos —«A»,
+«no.»— que el modelo atribuyó a hablantes inventados. En ACTA PRO eso se
+traduce en pedirle a la docente que identifique cuatro voces cuando en la sala
+había dos, y la inestabilidad entre ejecuciones lo empeora.
+
+Se queda la combinación de dos servicios: cinco veces más rápida y con el número
+de voces correcto. Merece la pena revisarlo cuando el modelo madure.
+
 Conviene tener clara una distinción que la publicidad de los proveedores mezcla:
 
 > **Diarización ≠ identificación.** Deepgram sabe que hablaron tres personas
