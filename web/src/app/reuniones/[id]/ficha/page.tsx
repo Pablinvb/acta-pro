@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
+import { Historial } from '@/components/Historial';
 import { Avatar, Banner, Card, Label, PageHead, WfTag } from '@/components/ui';
 import { findMeeting, previousDocuments, representative, student } from '@/lib/mock/data';
 import { requireSession } from '@/lib/session';
+import { history } from '@/services';
 
 export const metadata = { title: 'Ficha previa · ACTA PRO' };
 
@@ -24,6 +26,21 @@ export default async function FichaPage({ params }: { params: Promise<{ id: stri
 
   const verified = meeting.data_status !== 'manual_verification_required';
 
+  /*
+   * Lo que quedó abierto con esta familia. Va antes que los datos académicos:
+   * el promedio se puede consultar en cualquier momento, pero llegar a la
+   * reunión sin saber qué se acordó la vez anterior es lo que la convierte en
+   * una conversación que empieza de cero.
+   */
+  const previo = await history.forStudent(meeting.student_id, {
+    before: meeting.date,
+    excludeMeetingId: meeting.meeting_id,
+  });
+
+  const actasDelEstudiante = previousDocuments.filter(
+    (d) => d.student_id === meeting.student_id,
+  );
+
   return (
     <AppShell meeting={meeting} teacherName={session.name} teacherId={session.teacherId}>
       <div className="flex flex-col gap-4 p-5.5">
@@ -36,6 +53,8 @@ export default async function FichaPage({ params }: { params: Promise<{ id: stri
         <div className="flex items-start gap-3.5 max-lg:flex-col">
           {/* ── Columna principal ── */}
           <div className="flex min-w-0 flex-1 flex-col gap-3.5 max-lg:w-full">
+            <Historial history={previo} />
+
             <Card
               title="Estudiante"
               aside={<span className="font-data text-[10px] tracking-wider text-ink-3">FUENTE: RUNACHAY</span>}
@@ -71,7 +90,13 @@ export default async function FichaPage({ params }: { params: Promise<{ id: stri
 
             <Card title="Actas anteriores de este estudiante" tag="ARCHIVO" bodyClassName="px-4">
               <ul className="flex list-none flex-col">
-                {previousDocuments.map((d, i) => (
+                {/*
+                  Filtrado por estudiante. Antes se pintaba el archivo entero, de
+                  modo que en la ficha de Juan aparecían las actas de Camila y de
+                  Mateo. En un centro educativo eso no es un fallo de maquetación:
+                  es enseñar el historial de una familia a otra.
+                */}
+                {actasDelEstudiante.map((d, i) => (
                   <li
                     key={d.meeting_id}
                     className={`flex items-center gap-3 py-3 ${i > 0 ? 'border-t border-line' : ''}`}

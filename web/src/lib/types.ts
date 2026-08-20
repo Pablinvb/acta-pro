@@ -14,6 +14,15 @@ export interface Teacher {
   name: string;
   subject?: string;
   email?: string;
+  /**
+   * Teléfono y cargo existen porque el acta institucional los pide en «Datos
+   * generales». Son opcionales: si el centro no los tiene registrados, el acta
+   * sale con esa casilla vacía, igual que el formulario en papel, en lugar de
+   * inventarlos.
+   */
+  phone?: string;
+  /** Cargo tal y como debe constar en el acta: «Docente», «Tutor de curso»… */
+  position?: string;
 }
 
 export interface Student {
@@ -72,6 +81,16 @@ export interface Meeting {
   teacher_id: string;
   student_id: string;
   teacher_name: string;
+  /**
+   * Datos de contacto de la docente, desnormalizados igual que los del
+   * representante. El acta institucional los imprime en «Datos generales», y
+   * traerlos con la reunión evita que generar un PDF tenga que resolver además
+   * un directorio de personal.
+   */
+  teacher_email?: string;
+  teacher_phone?: string;
+  /** Cargo tal y como debe constar en el acta. */
+  teacher_position?: string;
   student_name: string;
   course: string;
   representative_name: string;
@@ -82,6 +101,8 @@ export interface Meeting {
   /** `HH:mm`. */
   start_time: string;
   end_time?: string;
+  /** Dónde se celebró. El acta institucional lo pide en «Datos generales». */
+  place?: string;
   status: MeetingStatus;
   data_status: DataStatus;
   participants: Participant[];
@@ -230,6 +251,15 @@ export interface Signature {
   signer_role: 'teacher' | 'representative';
   signer_name: string;
   signed_at: string | null;
+  /**
+   * Huella SHA-256 del acta en el momento de firmarla, incluidas las dos firmas
+   * y el instante. Es el sello de tiempo: va impresa en el PDF, de modo que
+   * cualquiera puede comprobar que el acta archivada es la que se firmó.
+   *
+   * Las dos firmas llevan la misma huella porque cubren el mismo acto: el acta
+   * se firma entera o no se firma.
+   */
+  content_hash?: string;
 }
 
 /* ── Seguimiento (WF 16) ──────────────────────────────────────────────────── */

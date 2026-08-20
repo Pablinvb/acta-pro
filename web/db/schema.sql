@@ -16,8 +16,16 @@
 CREATE TABLE teachers (
   teacher_id   TEXT PRIMARY KEY,
   name         TEXT NOT NULL,
-  email        TEXT UNIQUE NOT NULL,
+  -- Sin NOT NULL: el acta institucional imprime este correo, y una dirección
+  -- inventada para cumplir una restricción acabaría en un documento oficial
+  -- pareciendo verdadera. Preferimos la casilla vacía.
+  email        TEXT UNIQUE,
   subject      TEXT,
+  -- Teléfono y cargo los pide el acta institucional en «Datos generales».
+  -- Son opcionales: sin ellos la casilla sale vacía, como en el formulario en
+  -- papel, en lugar de rellenarse con algo inventado.
+  phone        TEXT,
+  position     TEXT,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -60,6 +68,8 @@ CREATE TABLE meetings (
   meeting_date      DATE NOT NULL,
   start_time        TIME NOT NULL,
   end_time          TIME,
+  -- Dónde se celebró. Campo del acta institucional.
+  place             TEXT,
   school_year       TEXT NOT NULL,
   status            meeting_status NOT NULL DEFAULT 'scheduled',
   data_status       data_status NOT NULL DEFAULT 'manual_verification_required',
@@ -153,6 +163,10 @@ CREATE TABLE signatures (
   signer_name TEXT NOT NULL,
   image       TEXT NOT NULL,
   signed_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- Sello de tiempo: huella SHA-256 del acta, las dos firmas y el instante.
+  -- Va impresa en el PDF, así que si alguien altera el acta archivada, el
+  -- documento que se llevaron las partes deja de cuadrar con ella.
+  content_hash TEXT,
   PRIMARY KEY (meeting_id, signer_role)
 );
 
@@ -211,6 +225,9 @@ SELECT
   m.teacher_id,
   m.student_id,
   t.name  AS teacher_name,
+  t.email AS teacher_email,
+  t.phone AS teacher_phone,
+  t.position AS teacher_position,
   s.name  AS student_name,
   s.course,
   COALESCE(r.name, '')  AS representative_name,
@@ -219,6 +236,7 @@ SELECT
   to_char(m.meeting_date, 'YYYY-MM-DD') AS date,
   to_char(m.start_time, 'HH24:MI')      AS start_time,
   to_char(m.end_time, 'HH24:MI')        AS end_time,
+  m.place,
   m.status,
   m.data_status,
   m.school_year,

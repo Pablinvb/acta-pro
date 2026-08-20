@@ -3,6 +3,8 @@ import type { AiAnalysis, Meeting, MeetingMinutes, MinutesSection } from '@/lib/
 import { getRepositories } from '@/repositories';
 import { invalido } from './errors';
 import * as audit from './audit.service';
+import * as history from './history.service';
+import { inheritedBackground } from './history';
 
 /**
  * Generación del acta — antes workflow 10.
@@ -38,6 +40,15 @@ export interface BuildMinutesInput {
   meeting: Meeting;
   analysis: AiAnalysis;
   sequence: number;
+  /**
+   * Antecedentes que vienen de reuniones anteriores del mismo estudiante.
+   *
+   * No los produce la IA: se leen de actas ya aprobadas y firmadas, y llegan
+   * redactados con su fecha y su código de acta. Van los primeros de la sección
+   * 3 porque cronológicamente son lo primero que pasó, y porque son la parte de
+   * los antecedentes que se puede demostrar señalando un documento.
+   */
+  inheritedBackground?: string[];
 }
 
 /** Código único del acta: `ACTA-YYYY-ESTUDIANTE-SECUENCIA`. */
@@ -53,7 +64,11 @@ export function buildDocumentCode(meeting: Meeting, sequence: number): string {
   return `ACTA-${year}-${student}-${String(sequence).padStart(4, '0')}`;
 }
 
-export function buildSections({ meeting, analysis }: BuildMinutesInput): MinutesSection[] {
+export function buildSections({
+  meeting,
+  analysis,
+  inheritedBackground = [],
+}: BuildMinutesInput): MinutesSection[] {
   const interventions = [
     ...items(analysis.teacher_actions),
     ...items(analysis.representative_concerns),
@@ -90,7 +105,11 @@ export function buildSections({ meeting, analysis }: BuildMinutesInput): Minutes
       title: 'Motivo de la reunión',
       paragraphs: [analysis.meeting_reason?.trim() || SIN_CONTENIDO],
     },
-    { number: 3, title: 'Antecedentes relevantes', items: items(analysis.background) },
+    {
+      number: 3,
+      title: 'Antecedentes relevantes',
+      items: [...inheritedBackground, ...items(analysis.background)],
+    },
     { number: 4, title: 'Temas tratados', items: items(analysis.topics) },
     { number: 5, title: 'Intervenciones relevantes', items: interventions },
     { number: 6, title: 'Situaciones analizadas', items: items(analysis.situations_discussed) },
@@ -126,11 +145,27 @@ export async function generate(meetingId: string): Promise<MeetingMinutes> {
     meeting.student_id,
   );
 
+  /*
+   * Lo que quedó de la reunión anterior con esta misma familia. Es la parte del
+   * acta que la docente no tendría por qué recordar de memoria, y la que da
+   * continuidad: sin ella cada reunión empieza de cero aunque sea la cuarta.
+   */
+  const previo = await history.forStudent(meeting.student_id, {
+    before: meeting.date,
+    excludeMeetingId: meetingId,
+  });
+  const heredados = inheritedBackground(previo);
+
   const minutes: MeetingMinutes = {
     meeting_id: meetingId,
     document_code: buildDocumentCode(meeting, sequence),
     status: 'draft',
-    sections: buildSections({ meeting, analysis, sequence }),
+    sections: buildSections({
+      meeting,
+      analysis,
+      sequence,
+      inheritedBackground: heredados,
+    }),
     generated_at: new Date().toISOString(),
   };
 

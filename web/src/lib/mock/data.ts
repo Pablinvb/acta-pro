@@ -24,6 +24,8 @@ export const teacher: Teacher = {
   name: 'Ana Pérez',
   subject: 'Matemáticas',
   email: 'ana.perez@colegio.edu.ec',
+  phone: '+593 98 445 2210',
+  position: 'Docente de Matemáticas',
 };
 
 /**
@@ -64,6 +66,9 @@ export const meetings: Meeting[] = [
     teacher_id: 'T-045',
     student_id: 'S-0231',
     teacher_name: 'Ana Pérez',
+    teacher_email: 'ana.perez@colegio.edu.ec',
+    teacher_phone: '+593 98 445 2210',
+    teacher_position: 'Docente de Matemáticas',
     student_name: 'Juan Pérez López',
     course: '8.º EGB "B"',
     representative_name: 'María López',
@@ -72,6 +77,7 @@ export const meetings: Meeting[] = [
     date: '2026-08-14',
     start_time: '10:00',
     end_time: '10:41',
+    place: 'Sala de reuniones · Bloque A',
     status: 'awaiting_teacher_review',
     data_status: 'verified',
     school_year: SCHOOL_YEAR,
@@ -86,6 +92,9 @@ export const meetings: Meeting[] = [
     teacher_id: 'T-045',
     student_id: 'S-0244',
     teacher_name: 'Ana Pérez',
+    teacher_email: 'ana.perez@colegio.edu.ec',
+    teacher_phone: '+593 98 445 2210',
+    teacher_position: 'Docente de Matemáticas',
     student_name: 'Camila Andrade Ruiz',
     course: '8.º EGB "B"',
     representative_name: 'Jorge Andrade',
@@ -93,6 +102,7 @@ export const meetings: Meeting[] = [
     meeting_type: 'Convivencia escolar',
     date: '2026-08-14',
     start_time: '11:30',
+    place: 'Sala de reuniones · Bloque A',
     status: 'scheduled',
     data_status: 'verified',
     school_year: SCHOOL_YEAR,
@@ -107,6 +117,9 @@ export const meetings: Meeting[] = [
     teacher_id: 'T-045',
     student_id: 'S-0119',
     teacher_name: 'Ana Pérez',
+    teacher_email: 'ana.perez@colegio.edu.ec',
+    teacher_phone: '+593 98 445 2210',
+    teacher_position: 'Docente de Matemáticas',
     student_name: 'Mateo Chávez Salinas',
     course: '9.º EGB "A"',
     representative_name: 'Rosa Salinas',
@@ -114,6 +127,7 @@ export const meetings: Meeting[] = [
     meeting_type: 'Seguimiento de compromisos',
     date: '2026-08-14',
     start_time: '14:15',
+    place: 'Oficina de tutoría',
     status: 'scheduled',
     // Runachay no devolvió el correo: el WF 15 no podría enviar el acta.
     data_status: 'manual_verification_required',
@@ -491,6 +505,104 @@ export const previousDocuments: ArchivedDocument[] = [
   archived('ACTA-2026-0098', 'S-0244', 'Camila Andrade Ruiz', 'ACTA-2026-CAMILA-ANDRADE-0098', 'Convivencia escolar', '2026-04-17'),
   archived('ACTA-2026-0061', 'S-0119', 'Mateo Chávez Salinas', 'ACTA-2026-MATEO-CHAVEZ-0061', 'Rendimiento académico', '2026-03-21'),
   archived('ACTA-2026-0132', 'S-0119', 'Mateo Chávez Salinas', 'ACTA-2026-MATEO-CHAVEZ-0132', 'Seguimiento de compromisos', '2026-06-09', false),
+];
+
+/* ── Reuniones anteriores del mismo estudiante ────────────────────────────── */
+
+/**
+ * Las dos reuniones previas de Juan Pérez, con sus actas.
+ *
+ * Existen para que el historial tenga de dónde tirar: sin ellas la ficha previa
+ * enseñaría siempre «primera reunión» y no habría forma de comprobar que los
+ * antecedentes se heredan bien. Coinciden con las actas de `previousDocuments`,
+ * para que el archivo y el historial cuenten lo mismo.
+ */
+function reunionPrevia(
+  id: string,
+  date: string,
+  meetingType: string,
+): Meeting {
+  return {
+    meeting_id: id,
+    teacher_id: 'T-045',
+    student_id: 'S-0231',
+    teacher_name: 'Ana Pérez',
+    teacher_email: 'ana.perez@colegio.edu.ec',
+    teacher_phone: '+593 98 445 2210',
+    teacher_position: 'Docente de Matemáticas',
+    student_name: 'Juan Pérez López',
+    course: '8.º EGB "B"',
+    representative_name: 'María López',
+    representative_email: 'maria.lopez@email.com',
+    meeting_type: meetingType,
+    date,
+    start_time: '09:00',
+    end_time: '09:35',
+    place: 'Sala de reuniones · Bloque A',
+    status: 'sent',
+    data_status: 'verified',
+    school_year: SCHOOL_YEAR,
+    participants: [
+      { role: 'teacher', name: 'Ana Pérez', present: true },
+      { role: 'mother', name: 'María López', present: true },
+      { role: 'student', name: 'Juan Pérez', present: true },
+    ],
+  };
+}
+
+export const previousMeetings: Meeting[] = [
+  reunionPrevia('ACTA-2026-0047', '2026-03-08', 'Rendimiento académico'),
+  reunionPrevia('ACTA-2026-0114', '2026-05-22', 'Seguimiento de compromisos'),
+];
+
+function actaPrevia(
+  meetingId: string,
+  documentCode: string,
+  acuerdos: string[],
+  compromisos: string[],
+): MeetingMinutes {
+  return {
+    meeting_id: meetingId,
+    document_code: documentCode,
+    status: 'final',
+    generated_at: '2026-05-22T10:00:00Z',
+    sections: [
+      { number: 7, title: 'Acuerdos', items: acuerdos },
+      { number: 8, title: 'Compromisos', items: compromisos },
+      { number: 9, title: 'Responsables', items: ['Ana Pérez', 'María López', 'Juan Pérez'] },
+    ],
+  };
+}
+
+export const previousMinutes: MeetingMinutes[] = [
+  actaPrevia(
+    'ACTA-2026-0047',
+    'ACTA-2026-JUAN-PEREZ-0047',
+    ['Tutoría de refuerzo los jueves durante el segundo parcial.'],
+    ['La representante revisará el cuaderno de tareas dos veces por semana.'],
+  ),
+  actaPrevia(
+    'ACTA-2026-0114',
+    'ACTA-2026-JUAN-PEREZ-0114',
+    ['Mantener la tutoría de refuerzo hasta el cierre del quimestre.'],
+    [
+      'El estudiante entregará las tareas atrasadas antes del 5 de junio de 2026.',
+      'La docente enviará un reporte quincenal al correo de la representante.',
+    ],
+  ),
+];
+
+export const previousFollowUps: FollowUp[] = [
+  {
+    meeting_id: 'ACTA-2026-0047',
+    date: '2026-05-22',
+    description: 'Revisión del avance del plan de refuerzo',
+  },
+  {
+    meeting_id: 'ACTA-2026-0114',
+    date: '2026-06-20',
+    description: 'Cierre de quimestre · Juan Pérez López',
+  },
 ];
 
 /* ── Resumen del panel ────────────────────────────────────────────────────── */

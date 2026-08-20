@@ -3,6 +3,7 @@ import type { Signature } from '@/lib/types';
 import { getRepositories } from '@/repositories';
 import * as audit from './audit.service';
 import { invalido, noEncontrado } from './errors';
+import { computeSeal } from './seal';
 
 /**
  * Firmas digitales — antes workflow 12.
@@ -62,27 +63,58 @@ export async function submit(input: SubmitSignaturesInput): Promise<Signature[]>
 
   const signedAt = new Date().toISOString();
 
-  await repos.signatures.save({
-    meeting_id: meetingId,
-    signer_role: 'teacher',
-    signer_name: meeting.teacher_name,
-    signed_at: signedAt,
-    image: teacherSignature,
-  });
-  await repos.signatures.save({
-    meeting_id: meetingId,
-    signer_role: 'representative',
-    signer_name: meeting.representative_name,
-    signed_at: signedAt,
-    image: representativeSignature,
-  });
+  const firmas = [
+    {
+      meeting_id: meetingId,
+      signer_role: 'teacher' as const,
+      signer_name: meeting.teacher_name,
+      signed_at: signedAt,
+      image: teacherSignature,
+    },
+    {
+      meeting_id: meetingId,
+      signer_role: 'representative' as const,
+      signer_name: meeting.representative_name,
+      signed_at: signedAt,
+      image: representativeSignature,
+    },
+  ];
+
+  /*
+   * El sello se calcula ANTES de guardar, sobre el acta que se acaba de firmar
+   * y sobre estas dos imágenes concretas. Es lo que convierte `signed_at` en
+   * algo más que una columna editable: si alguien cambiara después una línea
+   * del acta, la huella impresa en el PDF dejaría de cuadrar.
+   *
+   * Si no hay acta guardada no se sella, porque no habría qué sellar. No es un
+   * caso esperable —no se firma lo que no se ha redactado— pero tampoco es
+   * motivo para tumbar la firma.
+   */
+  const minutes = await repos.minutes.find(meetingId);
+  const contentHash = minutes
+    ? await computeSeal({
+        documentCode: minutes.document_code,
+        sections: minutes.sections,
+        signatures: firmas,
+      })
+    : undefined;
+
+  for (const firma of firmas) {
+    await repos.signatures.save({ ...firma, content_hash: contentHash });
+  }
 
   await repos.meetings.setStatus(meetingId, 'signed');
   await audit.record({
     meetingId,
     service: 'signature',
     event: `acta firmada por ${meeting.teacher_name} y ${meeting.representative_name}`,
-    details: { document_version: input.documentVersion ?? 1 },
+    details: {
+      document_version: input.documentVersion ?? 1,
+      signed_at: signedAt,
+      // Queda también en la auditoría, que sólo se añade y nunca se altera: si
+      // el sello de la firma cambiara, aquí se vería el original.
+      content_hash: contentHash ?? null,
+    },
   });
 
   return repos.signatures.listByMeeting(meetingId);

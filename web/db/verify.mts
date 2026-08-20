@@ -64,6 +64,9 @@ const meeting = {
   teacher_id: 'T-045',
   student_id: 'S-0231',
   teacher_name: 'Ana Pérez',
+  teacher_email: 'ana.perez@colegio.edu.ec',
+  teacher_phone: '+593 98 445 2210',
+  teacher_position: 'Docente de Matemáticas',
   student_name: 'Juan Pérez López',
   course: '8.º EGB "B"',
   representative_name: 'María López',
@@ -72,6 +75,7 @@ const meeting = {
   date: '2026-08-14',
   start_time: '10:00',
   end_time: '10:41',
+  place: 'Sala de reuniones · Bloque A',
   status: 'scheduled' as const,
   data_status: 'verified' as const,
   school_year: '2026-2027',
@@ -91,6 +95,17 @@ check('las horas salen como HH:MM', saved.start_time === '10:00' && saved.end_ti
   start: saved.start_time,
   end: saved.end_time,
 });
+
+/* Campos que pide el acta institucional en «Datos generales». Si no sobreviven
+   al viaje a la base, el acta sale con casillas vacías sin que nadie se entere. */
+check('el lugar de la reunión se conserva', saved.place === 'Sala de reuniones · Bloque A', saved.place);
+check(
+  'la vista trae el contacto de la docente para el acta',
+  saved.teacher_email === 'ana.perez@colegio.edu.ec' &&
+    saved.teacher_phone === '+593 98 445 2210' &&
+    saved.teacher_position === 'Docente de Matemáticas',
+  { email: saved.teacher_email, phone: saved.teacher_phone, cargo: saved.teacher_position },
+);
 
 // Idempotencia: era la razón de ser del antiguo workflow 01.
 await repos.meetings.upsert({ ...meeting, meeting_type: 'Rendimiento académico (actualizado)' });
@@ -203,6 +218,28 @@ check('se guardan las dos firmas', (await repos.signatures.listByMeeting('ACTA-2
 
 await repos.signatures.save({ meeting_id: 'ACTA-2026-0001', signer_role: 'teacher', signer_name: 'Ana Pérez', signed_at: null, image: png });
 check('volver a firmar sustituye, no acumula', (await repos.signatures.listByMeeting('ACTA-2026-0001')).length === 2);
+
+/*
+ * Sello de tiempo. El instante tiene que volver EXACTAMENTE como se guardó:
+ * antes lo ponía `now()` de la base, de modo que el momento almacenado no era
+ * el que se usó para calcular la huella y el sello impreso en el acta no habría
+ * cuadrado nunca. Un sello que no verifica promete algo que no cumple.
+ */
+const instante = '2026-08-20T21:22:11.263Z';
+const huella = 'a'.repeat(64);
+await repos.signatures.save({
+  meeting_id: 'ACTA-2026-0001',
+  signer_role: 'teacher',
+  signer_name: 'Ana Pérez',
+  signed_at: instante,
+  content_hash: huella,
+  image: png,
+});
+const firmada = (await repos.signatures.listByMeeting('ACTA-2026-0001')).find(
+  (s) => s.signer_role === 'teacher',
+);
+check('el instante de firma vuelve tal cual se guardó', firmada?.signed_at === instante, firmada?.signed_at);
+check('el sello de integridad se conserva', firmada?.content_hash === huella, firmada?.content_hash);
 
 /* ── Repositorio ─────────────────────────────────────────────────────────── */
 

@@ -14,6 +14,7 @@ export * as audit from './audit.service';
 export * as calendar from './calendar.service';
 export * as documents from './document.service';
 export * as email from './email.service';
+export * as history from './history.service';
 export * as languageReview from './language-review.service';
 export * as lifecycle from './meeting-lifecycle.service';
 export * as meetingAi from './meeting-ai.service';

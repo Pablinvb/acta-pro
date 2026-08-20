@@ -49,15 +49,27 @@ const globalStore = globalThis as unknown as { __actaProStore?: Store };
 
 function createStore(): Store {
   return {
-    meetings: new Map(seed.meetings.map((m) => [m.meeting_id, structuredClone(m)])),
+    meetings: new Map(
+      [...seed.meetings, ...seed.previousMeetings].map((m) => [
+        m.meeting_id,
+        structuredClone(m),
+      ]),
+    ),
     reminded: new Set(),
     transcripts: new Map([[seed.ACTIVE_MEETING_ID, structuredClone(seed.transcript)]]),
-    minutes: new Map([[seed.ACTIVE_MEETING_ID, structuredClone(seed.minutes)]]),
+    minutes: new Map([
+      [seed.ACTIVE_MEETING_ID, structuredClone(seed.minutes)],
+      ...seed.previousMinutes.map(
+        (m) => [m.meeting_id, structuredClone(m)] as [string, typeof m],
+      ),
+    ]),
     analyses: new Map(),
     reviews: new Map([[seed.ACTIVE_MEETING_ID, structuredClone(seed.languageFindings)]]),
     signatures: new Map(),
     documents: structuredClone(seed.previousDocuments),
-    followUps: [],
+    // El seguimiento de demostración se carga como el resto: sin él, la columna
+    // «Fecha plazo» del acta salía vacía y parecía un fallo del generador.
+    followUps: [structuredClone(seed.followUp), ...structuredClone(seed.previousFollowUps)],
     audit: [],
   };
 }
@@ -82,6 +94,8 @@ export const memoryRepositories: Repositories = {
       return [...store.meetings.values()]
         .filter((m) => !filter?.teacherId || m.teacher_id === filter.teacherId)
         .filter((m) => !filter?.date || m.date === filter.date)
+        .filter((m) => !filter?.studentId || m.student_id === filter.studentId)
+        .filter((m) => !filter?.before || m.date < filter.before)
         .sort((a, b) => `${a.date}${a.start_time}`.localeCompare(`${b.date}${b.start_time}`));
     },
     async find(id) {

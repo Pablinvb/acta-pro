@@ -29,7 +29,18 @@ import type {
  */
 
 export interface MeetingRepository {
-  list(filter?: { teacherId?: string; date?: string }): Promise<Meeting[]>;
+  /**
+   * `studentId` y `before` existen para el historial: al preparar una reunión
+   * hay que poder recuperar las anteriores de ese mismo estudiante, y sólo las
+   * anteriores —una reunión no puede tener como antecedente algo que aún no ha
+   * pasado—. `before` es una fecha ISO `YYYY-MM-DD`, exclusiva.
+   */
+  list(filter?: {
+    teacherId?: string;
+    date?: string;
+    studentId?: string;
+    before?: string;
+  }): Promise<Meeting[]>;
   find(meetingId: string): Promise<Meeting | null>;
   /** Alta idempotente: si la reunión ya existe, no se duplica (era el WF 03). */
   upsert(meeting: Meeting): Promise<Meeting>;

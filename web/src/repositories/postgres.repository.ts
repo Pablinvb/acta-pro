@@ -35,6 +35,9 @@ interface MeetingRow {
   teacher_id: string;
   student_id: string;
   teacher_name: string;
+  teacher_email: string | null;
+  teacher_phone: string | null;
+  teacher_position: string | null;
   student_name: string;
   course: string;
   representative_name: string;
@@ -43,6 +46,7 @@ interface MeetingRow {
   date: string;
   start_time: string;
   end_time: string | null;
+  place: string | null;
   status: Meeting['status'];
   data_status: Meeting['data_status'];
   school_year: string;
@@ -55,6 +59,9 @@ function toMeeting(row: MeetingRow): Meeting {
     teacher_id: row.teacher_id,
     student_id: row.student_id,
     teacher_name: row.teacher_name,
+    teacher_email: row.teacher_email ?? undefined,
+    teacher_phone: row.teacher_phone ?? undefined,
+    teacher_position: row.teacher_position ?? undefined,
     student_name: row.student_name,
     course: row.course,
     representative_name: row.representative_name,
@@ -63,6 +70,7 @@ function toMeeting(row: MeetingRow): Meeting {
     date: row.date,
     start_time: row.start_time,
     end_time: row.end_time ?? undefined,
+    place: row.place ?? undefined,
     status: row.status,
     data_status: row.data_status,
     school_year: row.school_year,
@@ -98,6 +106,14 @@ export function createPostgresRepositories(resolve: () => Promise<Db>): Reposito
           params.push(filter.date);
           conditions.push(`date = $${params.length}`);
         }
+        if (filter?.studentId) {
+          params.push(filter.studentId);
+          conditions.push(`student_id = $${params.length}`);
+        }
+        if (filter?.before) {
+          params.push(filter.before);
+          conditions.push(`date < $${params.length}`);
+        }
         const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
         const { rows } = await (await db()).query<MeetingRow>(
           `SELECT * FROM meetings_read ${where} ORDER BY date, start_time`,
@@ -120,9 +136,28 @@ export function createPostgresRepositories(resolve: () => Promise<Db>): Reposito
 
         // Las personas se aseguran antes que la reunión: son sus claves ajenas.
         await conn.query(
-          `INSERT INTO teachers (teacher_id, name, email) VALUES ($1, $2, $3)
-           ON CONFLICT (teacher_id) DO UPDATE SET name = EXCLUDED.name`,
-          [meeting.teacher_id, meeting.teacher_name, `${meeting.teacher_id}@acta-pro.local`],
+          /*
+           * Nada se inventa. Antes se guardaba `T-045@acta-pro.local` para
+           * satisfacer un NOT NULL, y ese correo falso acabaría impreso en los
+           * «Datos generales» del acta institucional pareciendo auténtico.
+           *
+           * COALESCE en el UPDATE para que volver a sincronizar una reunión que
+           * no trae contacto no borre el que ya había.
+           */
+          `INSERT INTO teachers (teacher_id, name, email, phone, position)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (teacher_id) DO UPDATE SET
+             name     = EXCLUDED.name,
+             email    = COALESCE(EXCLUDED.email, teachers.email),
+             phone    = COALESCE(EXCLUDED.phone, teachers.phone),
+             position = COALESCE(EXCLUDED.position, teachers.position)`,
+          [
+            meeting.teacher_id,
+            meeting.teacher_name,
+            meeting.teacher_email ?? null,
+            meeting.teacher_phone ?? null,
+            meeting.teacher_position ?? null,
+          ],
         );
         await conn.query(
           `INSERT INTO students (student_id, name, course) VALUES ($1, $2, $3)
@@ -143,14 +178,15 @@ export function createPostgresRepositories(resolve: () => Promise<Db>): Reposito
         // Calendar actualiza la reunión en lugar de duplicarla.
         await conn.query(
           `INSERT INTO meetings (meeting_id, teacher_id, student_id, representative_id,
-                                 meeting_type, meeting_date, start_time, end_time,
+                                 meeting_type, meeting_date, start_time, end_time, place,
                                  school_year, status, data_status)
-           VALUES ($1, $2, $3, $4, $5, $6::date, $7::time, $8::time, $9, $10, $11)
+           VALUES ($1, $2, $3, $4, $5, $6::date, $7::time, $8::time, $9, $10, $11, $12)
            ON CONFLICT (meeting_id) DO UPDATE SET
              meeting_type = EXCLUDED.meeting_type,
              meeting_date = EXCLUDED.meeting_date,
              start_time   = EXCLUDED.start_time,
              end_time     = EXCLUDED.end_time,
+             place        = EXCLUDED.place,
              status       = EXCLUDED.status,
              data_status  = EXCLUDED.data_status,
              updated_at   = now()`,
@@ -163,6 +199,7 @@ export function createPostgresRepositories(resolve: () => Promise<Db>): Reposito
             meeting.date,
             meeting.start_time,
             meeting.end_time ?? null,
+            meeting.place ?? null,
             meeting.school_year,
             meeting.status,
             meeting.data_status,
@@ -401,8 +438,8 @@ export function createPostgresRepositories(resolve: () => Promise<Db>): Reposito
     signatures: {
       async listByMeeting(meetingId) {
         const { rows } = await (await db()).query<Record<string, unknown>>(
-          `SELECT meeting_id, signer_role, signer_name, image,
-                  to_char(signed_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS signed_at
+          `SELECT meeting_id, signer_role, signer_name, image, content_hash,
+                  to_char(signed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS signed_at
            FROM signatures WHERE meeting_id = $1`,
           [meetingId],
         );
@@ -411,6 +448,7 @@ export function createPostgresRepositories(resolve: () => Promise<Db>): Reposito
           signer_role: r.signer_role as Signature['signer_role'],
           signer_name: r.signer_name as string,
           signed_at: r.signed_at as string,
+          content_hash: (r.content_hash as string | null) ?? undefined,
           image: r.image as string,
         })) as Signature[];
       },
@@ -418,13 +456,29 @@ export function createPostgresRepositories(resolve: () => Promise<Db>): Reposito
       async save(signature) {
         // Una firma por rol: volver a firmar sustituye, no acumula.
         await (await db()).query(
-          `INSERT INTO signatures (meeting_id, signer_role, signer_name, image)
-           VALUES ($1, $2, $3, $4)
+          /*
+           * `signed_at` se guarda tal y como llega, no con `now()`.
+           *
+           * Antes lo ponía el reloj de la base, de modo que el instante
+           * almacenado no era el mismo que el usado para calcular el sello y la
+           * huella nunca habría cuadrado. Un sello que no verifica es peor que
+           * no tener sello: promete algo que no cumple.
+           */
+          `INSERT INTO signatures (meeting_id, signer_role, signer_name, image, signed_at, content_hash)
+           VALUES ($1, $2, $3, $4, COALESCE($5::timestamptz, now()), $6)
            ON CONFLICT (meeting_id, signer_role) DO UPDATE SET
-             signer_name = EXCLUDED.signer_name,
-             image       = EXCLUDED.image,
-             signed_at   = now()`,
-          [signature.meeting_id, signature.signer_role, signature.signer_name, signature.image],
+             signer_name  = EXCLUDED.signer_name,
+             image        = EXCLUDED.image,
+             signed_at    = EXCLUDED.signed_at,
+             content_hash = EXCLUDED.content_hash`,
+          [
+            signature.meeting_id,
+            signature.signer_role,
+            signature.signer_name,
+            signature.image,
+            signature.signed_at,
+            signature.content_hash ?? null,
+          ],
         );
       },
     },

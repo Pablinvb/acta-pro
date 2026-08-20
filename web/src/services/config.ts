@@ -104,6 +104,37 @@ export const institutionalVocabulary: string[] = [
     .filter(Boolean),
 ];
 
+/* ── Identidad institucional del acta ─────────────────────────────────────── */
+
+/**
+ * Lo que va impreso en el acta como membrete.
+ *
+ * El acta que sale de ACTA PRO tiene que ser indistinguible de la que el centro
+ * ya usa en papel: es un documento institucional que se archiva y, llegado el
+ * caso, se presenta. Un formato propio, por bonito que sea, obligaría a la
+ * docente a transcribirlo al de verdad.
+ */
+export const institutionName =
+  process.env.ACTA_PRO_INSTITUCION ?? 'UNIDAD EDUCATIVA EIGHT ACADEMY';
+
+/**
+ * Lugar por defecto cuando la reunión no lo trae.
+ *
+ * Vacío a propósito: el formulario en papel tiene esa casilla en blanco y se
+ * rellena a mano. Preferimos una casilla vacía a un lugar inventado, porque el
+ * acta afirma dónde ocurrió algo.
+ */
+export const defaultMeetingPlace = process.env.ACTA_PRO_LUGAR ?? '';
+
+/**
+ * Zona horaria con la que se imprime la hora de las firmas.
+ *
+ * Un acta ecuatoriana con la hora en UTC obliga a restar cinco horas para saber
+ * si la reunión fue por la mañana o por la tarde, y ese detalle puede importar
+ * si alguien discute cuándo se firmó.
+ */
+export const institutionTimeZone = process.env.ACTA_PRO_ZONA_HORARIA ?? 'America/Guayaquil';
+
 /* ── Almacenamiento de objetos (S3 / Firebase / R2) ───────────────────────── */
 
 export const storageDriver: 'drive' | 's3' =
