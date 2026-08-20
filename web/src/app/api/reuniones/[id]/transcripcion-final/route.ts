@@ -27,9 +27,22 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     );
   }
 
+  /*
+   * Los momentos que la docente señaló durante la reunión, en segundos desde
+   * que empezó a grabar. Van con el audio y no en una llamada aparte porque
+   * sólo tienen sentido sobre esta transcripción: es la que los va a situar.
+   */
+  let marks: number[] = [];
+  try {
+    const crudo: unknown = JSON.parse(String(form.get('marcas') ?? '[]'));
+    if (Array.isArray(crudo)) marks = crudo.filter((n): n is number => Number.isFinite(n) && n >= 0);
+  } catch {
+    marks = [];
+  }
+
   return handle(async () => {
     const meeting = await meetings.find(meetingId);
     const present = meeting.participants.filter((p) => p.present).map((p) => p.name);
-    return speech.transcribeFullMeeting(meetingId, audio, present);
+    return speech.transcribeFullMeeting(meetingId, audio, present, marks);
   });
 }

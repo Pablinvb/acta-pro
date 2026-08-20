@@ -37,6 +37,8 @@ export function RevisarAtribucion({
   const [segments, setSegments] = useState<TranscriptSegment[] | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
   const [showOriginal, setShowOriginal] = useState(false);
+  /** Ver sólo lo que la docente señaló durante la reunión. */
+  const [onlyMarked, setOnlyMarked] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,6 +93,8 @@ export function RevisarAtribucion({
   }
 
   const unattributed = segments.filter((s) => !s.speaker).length;
+  const marked = segments.filter((s) => s.flagged_by_teacher).length;
+  const visible = onlyMarked ? segments.filter((s) => s.flagged_by_teacher) : segments;
 
   return (
     <div className="flex flex-col gap-3.5">
@@ -121,21 +125,50 @@ export function RevisarAtribucion({
           />
           Ver también el texto original, sin depurar
         </label>
+
+        {/*
+          Los momentos que la docente señaló durante la reunión son, por
+          definición, los que le importaban lo bastante como para pulsar
+          mientras hablaba con la familia. Poder ir directamente a ellos evita
+          releer cuarenta minutos para encontrar cuatro frases.
+        */}
+        {marked > 0 && (
+          <label className="mt-2 flex cursor-pointer items-center gap-2 text-[13px] text-ink-2">
+            <input
+              type="checkbox"
+              checked={onlyMarked}
+              onChange={(e) => setOnlyMarked(e.target.checked)}
+              className="size-4 accent-[var(--accent)]"
+            />
+            Ver sólo los {marked} momento(s) que marcaste en la reunión
+          </label>
+        )}
       </Card>
 
       <Card bodyClassName="p-0">
         <ul className="flex max-h-[440px] list-none flex-col overflow-y-auto">
-          {segments.map((segment, i) => (
+          {visible.map((segment, i) => (
             <li
               key={segment.timestamp}
               className={`px-4 py-3 ${i > 0 ? 'border-t border-line' : ''} ${
                 saving === segment.timestamp ? 'opacity-60' : ''
+              } ${
+                /* La marca la puso la docente a mano: se ve antes que nada. */
+                segment.flagged_by_teacher ? 'border-l-2 border-l-accent bg-accent-soft/25' : ''
               }`}
             >
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <span className="tabular font-data text-[11px] text-ink-3">
                   {segment.timestamp.slice(11, 19)}
                 </span>
+                {segment.flagged_by_teacher && (
+                  <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-accent-border bg-accent-soft px-2.5 py-0.5 text-[11px] font-semibold text-accent-text">
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="size-3">
+                      <path d="M6 3h12v18l-6-4.5L6 21z" />
+                    </svg>
+                    Lo marcaste
+                  </span>
+                )}
                 {segment.speaker_tag && !segment.speaker && (
                   <Pill tone="accent">Voz {segment.speaker_tag}</Pill>
                 )}

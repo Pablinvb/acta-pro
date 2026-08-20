@@ -5,6 +5,7 @@ import * as audit from './audit.service';
 import { diarizationEnabled, institutionalVocabulary, isDemo } from './config';
 import { invalido } from './errors';
 import { align, uncertainCount } from './transcription/alignment';
+import { applyMarks } from './transcription/marks';
 import type { DiarizationResult } from './transcription/diarization';
 import { pyannoteProvider } from './transcription/pyannote.provider';
 import { getTranscriptionProvider } from './transcription/index';
@@ -121,6 +122,8 @@ export interface FinalPassResult {
   speakerConfidence: number | null;
   /** Por debajo de esto, la atribución no es de fiar y hay que decirlo. */
   reliable: boolean;
+  /** Intervenciones que quedaron señaladas por las marcas de la docente. */
+  marked: number;
 }
 
 /** Umbral por debajo del cual la separación de voces no se presenta como un hecho. */
@@ -142,6 +145,16 @@ export async function transcribeFullMeeting(
   meetingId: string,
   audio: Blob,
   expectedParticipants: string[],
+  /**
+   * Momentos que la docente señaló durante la reunión, en segundos desde el
+   * inicio de la grabación.
+   *
+   * Llegan aquí y no en el momento de pulsar porque cuando se pulsa la frase
+   * todavía no existe: el fragmento que la contiene se está grabando. Es al
+   * tener la transcripción definitiva cuando se puede decir qué intervención
+   * ocupaba ese segundo.
+   */
+  marks: number[] = [],
 ): Promise<FinalPassResult> {
   if (audio.size === 0) throw invalido('No llegó el audio de la reunión.');
 
@@ -184,6 +197,12 @@ export async function transcribeFullMeeting(
       )
     : null;
 
+  /* Se conserva el tramo de cada intervención —y no sólo su instante de
+     inicio— porque es lo que permite situar después las marcas de la docente. */
+  const rangos: Array<{ start: number; end: number }> = alineadas
+    ? alineadas.map((u) => ({ start: u.start, end: u.end }))
+    : result.segments.map((s) => ({ start: s.start, end: s.end }));
+
   const segments: TranscriptSegment[] = alineadas
     ? alineadas.map((u) => ({
         meeting_id: meetingId,
@@ -201,6 +220,8 @@ export async function transcribeFullMeeting(
         speaker_tag: s.speaker_tag,
         speaker_confirmed: false,
       }));
+
+  const marcadas = applyMarks(segments, rangos, marks);
 
   await repos.transcripts.replaceAll(meetingId, segments);
 
@@ -231,10 +252,11 @@ export async function transcribeFullMeeting(
       `transcripción final: ${segments.length} intervención(es), ${voces} voz/voces` +
       (diarization ? ` (separadas con ${pyannoteProvider.name})` : ' (sin separación de voces)') +
       (confidence === null ? '' : `, confianza ${confidence.toFixed(2)}`) +
-      (dudosas > 0 ? `, ${dudosas} por revisar` : ''),
+      (dudosas > 0 ? `, ${dudosas} por revisar` : '') +
+      (marcadas > 0 ? `, ${marcadas} señalada(s) por la docente` : ''),
   });
 
-  return { segments, voices: voces, speakerConfidence: confidence, reliable };
+  return { segments, voices: voces, speakerConfidence: confidence, reliable, marked: marcadas };
 }
 
 /**

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useToast } from '@/components/Toast';
+import { roleLabel } from '@/components/people';
 import { Banner, Button, Card, Label, Pill, WfTag } from '@/components/ui';
 import type { Participant } from '@/lib/types';
 
@@ -210,7 +211,7 @@ export function IdentificarVoces({
                       >
                         {selected && <span aria-hidden>✓ </span>}
                         {p.name}
-                        <span className="ml-1.5 text-[11px] opacity-70 capitalize">{p.role}</span>
+                        <span className="ml-1.5 text-[11px] opacity-70">{roleLabel(p.role)}</span>
                       </button>
                     );
                   })}

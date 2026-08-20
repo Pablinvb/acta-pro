@@ -22,6 +22,27 @@ const PEOPLE_COLORS = [
   { bg: '#155e75', ring: '#0891b2', name: 'petróleo' },
 ] as const;
 
+/**
+ * El papel de cada persona, en castellano.
+ *
+ * Los valores del dominio son los del contrato de los workflows —`teacher`,
+ * `mother`—, y salían a pantalla tal cual. En una aplicación que usan docentes
+ * y familias ecuatorianas, leer «Mother» bajo el nombre de la madre delata que
+ * nadie tradujo esa parte.
+ */
+const ROLE_LABELS: Record<string, string> = {
+  teacher: 'Docente',
+  mother: 'Madre',
+  father: 'Padre',
+  student: 'Estudiante',
+  other: 'Otro',
+  representative: 'Representante',
+};
+
+export function roleLabel(role: string): string {
+  return ROLE_LABELS[role] ?? role;
+}
+
 export function colorFor(name: string): (typeof PEOPLE_COLORS)[number] {
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;

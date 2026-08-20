@@ -1,23 +1,43 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/Toast';
-import { Waveform } from '@/components/Waveform';
-import { Avatar, Banner, Button, Card, Pill, WfTag } from '@/components/ui';
+import { RecordOrb } from '@/components/RecordOrb';
+import { colorFor, PersonAvatar, roleLabel } from '@/components/people';
+import { Banner, Button, Card, Pill } from '@/components/ui';
 import type { Meeting, TranscriptSegment } from '@/lib/types';
 import { IdentificarVoces } from './IdentificarVoces';
 import { RevisarAtribucion } from './RevisarAtribucion';
+
+/**
+ * La sala de reunión.
+ *
+ * Toda la pantalla está gobernada por una idea: **la docente no puede mirarla**.
+ * Tiene delante a una familia, y el aparato que hay sobre la mesa compite por
+ * una atención que pertenece a esas personas. De ahí las tres decisiones que la
+ * separan de un panel de control:
+ *
+ *  1. Una sola acción grande. Durante la reunión lo único que se hace es marcar
+ *     «esto importa». Es el objetivo más grande de la pantalla y se acierta sin
+ *     mirar.
+ *  2. Ni un dato de ingeniería. Cuántos fragmentos se enviaron es asunto del
+ *     programa, no de la docente; lo que necesita saber es si se está guardando.
+ *  3. Modo discreto. El iPad queda entre dos personas y el padre o la madre lee
+ *     lo que aparece. Una transcripción en crudo se equivoca a menudo, y ver una
+ *     frase propia mal transcrita en mitad de la conversación hace daño.
+ */
 
 /** Duración de cada fragmento de audio, en milisegundos. */
 const CHUNK_MS = 30_000;
 
 type RecordingState = 'idle' | 'starting' | 'recording' | 'paused' | 'stopped' | 'error';
 
-interface ChunkStatus {
-  index: number;
-  at: string;
-  state: 'sending' | 'sent' | 'failed';
+/** Momento señalado por la docente, en segundos desde el inicio de la grabación. */
+interface Mark {
+  id: number;
+  at: number;
+  label: string;
 }
 
 function formatElapsed(seconds: number): string {
@@ -26,6 +46,60 @@ function formatElapsed(seconds: number): string {
   const s = String(seconds % 60).padStart(2, '0');
   return `${h}:${m}:${s}`;
 }
+
+/* ── Agrupación del feed ──────────────────────────────────────────────────── */
+
+type FeedItem =
+  | { kind: 'speech'; key: string; tag?: string; name?: string; at: string; texts: string[] }
+  | { kind: 'mark'; key: string; at: string; label: string };
+
+/**
+ * Junta las intervenciones seguidas de una misma voz en un solo bloque.
+ *
+ * El reconocimiento de voz corta por pausas de respiración, así que una persona
+ * hablando treinta segundos produce ocho o diez fragmentos. Pintados uno por
+ * uno, con su etiqueta repetida, la pantalla parece un registro de máquina en
+ * lugar de una conversación.
+ */
+function buildFeed(segments: TranscriptSegment[], marks: Mark[], startedAt: number | null): FeedItem[] {
+  const items: FeedItem[] = [];
+
+  for (const s of segments) {
+    const last = items[items.length - 1];
+    const mismaVoz =
+      last?.kind === 'speech' && last.tag === s.speaker_tag && last.name === s.speaker;
+    const texto = (s.clean_text ?? s.text).trim();
+    if (!texto) continue;
+
+    if (mismaVoz) last.texts.push(texto);
+    else {
+      items.push({
+        kind: 'speech',
+        key: s.timestamp,
+        tag: s.speaker_tag,
+        name: s.speaker,
+        at: s.timestamp,
+        texts: [texto],
+      });
+    }
+  }
+
+  if (startedAt !== null) {
+    for (const m of marks) {
+      items.push({
+        kind: 'mark',
+        key: `marca-${m.id}`,
+        at: new Date(startedAt + m.at * 1000).toISOString(),
+        label: m.label,
+      });
+    }
+    items.sort((a, b) => a.at.localeCompare(b.at));
+  }
+
+  return items;
+}
+
+/* ── Pantalla ─────────────────────────────────────────────────────────────── */
 
 export function SalaClient({
   meeting,
@@ -43,15 +117,19 @@ export function SalaClient({
   const [state, setState] = useState<RecordingState>('idle');
   const [error, setError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
-  const [chunks, setChunks] = useState<ChunkStatus[]>([]);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  /** Tramos que no llegaron al servidor. Se cuentan, no se enumeran. */
+  const [unsaved, setUnsaved] = useState(0);
+  const [saving, setSaving] = useState(false);
   const [present, setPresent] = useState<Record<string, boolean>>(
     Object.fromEntries(meeting.participants.map((p) => [p.name, p.present ?? true])),
   );
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
-  const [marks, setMarks] = useState<string[]>([]);
+  const [marks, setMarks] = useState<Mark[]>([]);
+  const [discreet, setDiscreet] = useState(false);
   /**
-   * La sala tiene dos fases: la reunión, y la identificación de voces al
-   * terminar. Se separan porque son dos tareas distintas: durante la reunión la
+   * La sala tiene tres fases: la reunión, la identificación de voces y el
+   * repaso. Se separan porque son tareas distintas: durante la reunión la
    * docente está atendiendo a las personas, no clasificando audio.
    */
   const [phase, setPhase] = useState<'meeting' | 'identify' | 'review'>('meeting');
@@ -60,7 +138,6 @@ export function SalaClient({
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const chunkIndex = useRef(0);
   /** Fragmentos seguidos sin voz reconocida. */
   const silentStreak = useRef(0);
   /**
@@ -72,6 +149,9 @@ export function SalaClient({
    * Cuarenta minutos ocupan unas decenas de megas en memoria.
    */
   const fullAudio = useRef<Blob[]>([]);
+  /** El cronómetro leído desde callbacks, sin volver a crearlos en cada tic. */
+  const elapsedRef = useRef(0);
+  elapsedRef.current = elapsed;
   const feedRef = useRef<HTMLDivElement | null>(null);
 
   /* ── Cronómetro ── */
@@ -88,19 +168,21 @@ export function SalaClient({
     setSegments(demoTranscript.slice(0, shown));
   }, [isMock, state, elapsed, demoTranscript]);
 
+  const feed = useMemo(() => buildFeed(segments, marks, startedAt), [segments, marks, startedAt]);
+
   useEffect(() => {
+    if (discreet) return;
     feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight, behavior: 'smooth' });
-  }, [segments.length, marks.length]);
+  }, [feed.length, discreet]);
 
   /* ── Envío de un fragmento a transcribir ── */
   const sendChunk = useCallback(
     async (blob: Blob) => {
-      const index = ++chunkIndex.current;
       const at = new Date().toISOString();
-      setChunks((c) => [...c.slice(-4), { index, at, state: 'sending' }]);
+      setSaving(true);
 
       const form = new FormData();
-      form.append('data', blob, `chunk-${index}.webm`);
+      form.append('data', blob, 'chunk.webm');
       form.append('meeting_id', meeting.meeting_id);
       form.append('timestamp', at);
       form.append(
@@ -113,47 +195,54 @@ export function SalaClient({
           method: 'POST',
           body: form,
         });
-        setChunks((c) =>
-          c.map((x) => (x.index === index ? { ...x, state: res.ok ? 'sent' : 'failed' } : x)),
-        );
-
-        if (res.ok) {
-          /*
-           * Un fragmento en silencio es normal — hay pausas. Varios seguidos no:
-           * significa micrófono silenciado o idioma mal configurado, y en ambos
-           * casos la reunión se estaría grabando en vano. Vale la pena
-           * interrumpir para avisar.
-           */
-          const body = await res.json();
-          if (body.silent) {
-            silentStreak.current += 1;
-            if (silentStreak.current === 3) {
-              toast({
-                tone: 'crit',
-                title: 'No se está reconociendo voz',
-                detail: 'Comprueba el micrófono: llevas minuto y medio sin transcribir nada.',
-              });
-            }
-          } else {
-            silentStreak.current = 0;
-          }
-        }
 
         if (!res.ok) {
-          toast({
-            tone: 'warn',
-            title: `Fragmento ${index} no llegó al servidor`,
-            detail: 'La grabación continúa. Solo se perdió este tramo.',
+          setUnsaved((n) => n + 1);
+          return;
+        }
+
+        const body = await res.json();
+
+        /*
+         * Lo que devuelve el servidor se pinta tal cual. Antes se descartaba y
+         * el feed sólo tenía contenido en modo demostración: en una reunión de
+         * verdad la docente veía «esperando el primer fragmento» de principio a
+         * fin, sin forma de saber si se estaba transcribiendo algo.
+         */
+        if (Array.isArray(body.segments) && body.segments.length > 0) {
+          setSegments((prev) => {
+            const vistos = new Set(prev.map((s) => s.timestamp));
+            const nuevos = (body.segments as TranscriptSegment[]).filter(
+              (s) => !vistos.has(s.timestamp),
+            );
+            return nuevos.length > 0 ? [...prev, ...nuevos] : prev;
           });
         }
+
+        /*
+         * Un fragmento en silencio es normal — hay pausas. Varios seguidos no:
+         * significa micrófono silenciado o idioma mal configurado, y en ambos
+         * casos la reunión se estaría grabando en vano. Vale la pena
+         * interrumpir para avisar.
+         */
+        if (body.silent) {
+          silentStreak.current += 1;
+          if (silentStreak.current === 3) {
+            toast({
+              tone: 'crit',
+              title: 'No se está reconociendo voz',
+              detail: 'Comprueba el micrófono: llevas minuto y medio sin transcribir nada.',
+            });
+          }
+        } else {
+          silentStreak.current = 0;
+        }
       } catch {
-        // Un fragmento perdido no interrumpe la reunión ni descarta los anteriores.
-        setChunks((c) => c.map((x) => (x.index === index ? { ...x, state: 'failed' } : x)));
-        toast({
-          tone: 'warn',
-          title: `Fragmento ${index} sin enviar`,
-          detail: 'Sin conexión. La grabación sigue en marcha.',
-        });
+        // Un tramo perdido no interrumpe la reunión ni descarta los anteriores:
+        // el audio completo se envía igualmente al finalizar.
+        setUnsaved((n) => n + 1);
+      } finally {
+        setSaving(false);
       }
     },
     [meeting.meeting_id, present, toast],
@@ -194,12 +283,8 @@ export function SalaClient({
       };
       recorder.start(CHUNK_MS);
       recorderRef.current = recorder;
+      setStartedAt(Date.now());
       setState('recording');
-      toast({
-        tone: 'ok',
-        title: 'Grabación iniciada',
-        detail: `Se enviará un fragmento cada ${CHUNK_MS / 1000} segundos.`,
-      });
     } catch {
       setState('error');
       setError(
@@ -213,7 +298,7 @@ export function SalaClient({
     }
   }, [meeting, present, sendChunk, toast]);
 
-  /* ── Pausar / reanudar / detener ── */
+  /* ── Pausar / reanudar ── */
   const togglePause = useCallback(() => {
     const rec = recorderRef.current;
     if (!rec) return;
@@ -227,17 +312,32 @@ export function SalaClient({
   }, []);
 
   /**
+   * Señala el instante actual.
+   *
+   * Se guarda el segundo, no el texto: cuando la docente pulsa, la frase que
+   * quiere marcar aún no está transcrita —el fragmento que la contiene sigue
+   * grabándose—. Al cerrar la reunión, con la transcripción definitiva hecha,
+   * el servidor marca la intervención que ocupa ese segundo.
+   */
+  const mark = useCallback(() => {
+    const at = elapsedRef.current;
+    setMarks((m) => [...m, { id: Date.now(), at, label: formatElapsed(at) }]);
+  }, []);
+
+  /**
    * Cierra la grabación y hace la pasada final sobre el audio completo antes de
    * identificar voces. Sin esa pasada, las etiquetas de voz serían distintas en
    * cada fragmento y la identificación no significaría nada.
    */
   const finish = useCallback(() => {
     const recorder = recorderRef.current;
+    const marcas = marks.map((m) => m.at);
     setState('stopped');
     setFinalizing(true);
 
     const run = async () => {
       streamRef.current?.getTracks().forEach((t) => t.stop());
+      setStream(null);
 
       const blob = new Blob(fullAudio.current, { type: 'audio/webm' });
       if (blob.size === 0) {
@@ -248,6 +348,7 @@ export function SalaClient({
 
       const form = new FormData();
       form.append('data', blob, 'reunion.webm');
+      form.append('marcas', JSON.stringify(marcas));
 
       try {
         const res = await fetch(
@@ -296,7 +397,7 @@ export function SalaClient({
     } else {
       void run();
     }
-  }, [meeting.meeting_id, meeting.participants, toast]);
+  }, [marks, meeting.meeting_id, meeting.participants, toast]);
 
   /**
    * Cierra la reunión: depura la transcripción, la analiza, genera el borrador
@@ -336,20 +437,14 @@ export function SalaClient({
     [],
   );
 
-  const markAgreement = () => {
-    setMarks((m) => [...m, formatElapsed(elapsed)]);
-  };
-
   const recording = state === 'recording';
-  const lastChunk = chunks[chunks.length - 1];
+  const started = state !== 'idle' && state !== 'error';
   /** Voces distintas detectadas hasta ahora. */
   const voiceCount = new Set(segments.map((s) => s.speaker_tag).filter(Boolean)).size;
+  const presentNames = meeting.participants.filter((p) => present[p.name]).map((p) => p.name);
 
-  /*
-   * Terminada la grabación, la pantalla cambia de tarea: ya no hay reunión que
-   * atender, hay voces que identificar. Se muestra sola esa tarea para que no
-   * compita con nada.
-   */
+  /* ── Fases posteriores a la grabación ── */
+
   if (phase === 'identify') {
     return (
       <IdentificarVoces
@@ -376,214 +471,421 @@ export function SalaClient({
     );
   }
 
-  if (finalizing) {
+  if (finalizing || closing) {
     return (
-      <Card>
-        <p className="py-10 text-center text-[13px] text-ink-3">
-          Procesando la reunión completa para separar las voces…
-          <br />
-          <span className="text-[11px]">
-            Se transcribe entera de una vez: es la única forma de que cada voz sea la misma persona
-            de principio a fin.
-          </span>
-        </p>
-      </Card>
+      <Working
+        title={
+          finalizing
+            ? 'Escuchando la reunión entera de una vez'
+            : 'Redactando el acta'
+        }
+        detail={
+          finalizing
+            ? 'Es la única forma de que cada voz sea la misma persona de principio a fin.'
+            : 'Depurando la transcripción, analizándola y redactando el borrador.'
+        }
+      />
     );
   }
 
-  if (closing) {
-    return (
-      <Card>
-        <p className="py-10 text-center text-[13px] text-ink-3">
-          Depurando la transcripción, analizándola y redactando el acta…
-        </p>
-      </Card>
-    );
-  }
+  /* ── La reunión ── */
 
   return (
-    <div className="flex items-start gap-3.5 max-lg:flex-col">
-      {/* ── Control de grabación ── */}
-      <div className="flex w-[340px] shrink-0 flex-col gap-3.5 max-lg:w-full">
-        <Card>
-          <div className="flex items-center gap-3">
-            <span
-              aria-hidden
-              className={`size-3 shrink-0 rounded-full ${
-                recording ? 'animate-pulse bg-crit' : state === 'paused' ? 'bg-warn' : 'bg-line-strong'
-              }`}
-            />
-            <div>
-              <p className="tabular font-data text-[31px] leading-none">{formatElapsed(elapsed)}</p>
-              <p className="mt-1 font-data text-[10px] tracking-wider text-ink-3 uppercase">
+    <div className="flex items-start gap-4 max-lg:flex-col">
+      {/* ── Grabación ── */}
+      <div className="flex w-[352px] shrink-0 flex-col gap-4 max-lg:w-full">
+        <Card bodyClassName="p-5">
+          <div className="flex flex-col items-center">
+            <RecordOrb stream={stream} state={recording ? 'recording' : state === 'paused' ? 'paused' : state === 'starting' ? 'starting' : 'idle'}>
+              <span className="tabular font-data text-[26px] leading-none">
+                {formatElapsed(elapsed)}
+              </span>
+              <span className="mt-1.5 flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.1em] text-ink-3 uppercase">
+                {recording && <span aria-hidden className="size-1.5 animate-pulse rounded-full bg-crit" />}
                 {recording
                   ? 'Grabando'
                   : state === 'paused'
                     ? 'En pausa'
                     : state === 'starting'
-                      ? 'Iniciando…'
+                      ? 'Iniciando'
                       : 'Sin grabar'}
-              </p>
-            </div>
+              </span>
+            </RecordOrb>
+
+            <SaveStatus started={started} saving={saving} unsaved={unsaved} />
           </div>
 
-          <Waveform stream={stream} active={recording} />
-
           {error && (
-            <div className="mt-3.5">
+            <div className="mt-4">
               <Banner tone="crit" title="Micrófono no disponible">
                 <p className="mt-0.5">{error}</p>
               </Banner>
             </div>
           )}
 
-          {lastChunk && (
-            <div className="mt-3 flex items-center justify-between gap-2.5 rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs">
-              <span>
-                Fragmento <b className="tabular font-data">{lastChunk.index}</b>
-              </span>
-              <Pill
-                tone={
-                  lastChunk.state === 'sent' ? 'ok' : lastChunk.state === 'failed' ? 'crit' : 'neutral'
-                }
-              >
-                {lastChunk.state === 'sent'
-                  ? 'Enviado'
-                  : lastChunk.state === 'failed'
-                    ? 'Reintentará'
-                    : 'Enviando…'}
-              </Pill>
-            </div>
-          )}
-
-          <div className="mt-3 flex flex-col gap-2">
-            {state === 'idle' || state === 'error' ? (
-              <Button variant="primary" onClick={start}>
-                Iniciar grabación
-              </Button>
+          <div className="mt-4 flex flex-col gap-2.5">
+            {!started ? (
+              <>
+                <Button variant="primary" className="h-14 text-[15px]" onClick={start}>
+                  Iniciar grabación
+                </Button>
+                <p className="text-center text-[11px] leading-relaxed text-ink-3">
+                  No se graba nada hasta que pulses. El audio se guarda mientras dura la reunión y se
+                  transcribe entero al terminar.
+                </p>
+              </>
             ) : (
-              <div className="flex gap-2">
-                <Button className="flex-1" onClick={togglePause} disabled={state === 'starting'}>
-                  {state === 'paused' ? 'Reanudar' : 'Pausar'}
-                </Button>
-                <Button className="flex-1" onClick={markAgreement} disabled={!recording}>
-                  Marcar acuerdo
-                </Button>
-              </div>
+              <>
+                {/*
+                  La acción principal de toda la pantalla. Grande a propósito: es
+                  lo único que se pulsa durante la reunión y hay que acertarlo
+                  sin apartar la vista de la familia.
+                */}
+                <button
+                  type="button"
+                  onClick={mark}
+                  disabled={!recording}
+                  className="group flex min-h-[76px] w-full items-center gap-3.5 rounded-[14px] border border-accent-border bg-accent-soft px-4 text-left transition hover:brightness-110 active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <span className="grid size-11 shrink-0 place-items-center rounded-full bg-accent text-accent-on shadow-glow-soft">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="size-5">
+                      <path d="M6 3h12v18l-6-4.5L6 21z" />
+                    </svg>
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[15px] font-semibold text-ink">
+                      Marcar este momento
+                    </span>
+                    <span className="mt-0.5 block text-[11.5px] leading-snug text-ink-3">
+                      Un acuerdo, un compromiso o algo que revisar después
+                    </span>
+                  </span>
+                  {marks.length > 0 && (
+                    <span className="tabular ml-auto shrink-0 rounded-full bg-accent px-2.5 py-1 font-data text-[12px] font-bold text-accent-on">
+                      {marks.length}
+                    </span>
+                  )}
+                </button>
+
+                <div className="flex gap-2.5">
+                  <Button className="h-12 flex-1" onClick={togglePause} disabled={state === 'starting'}>
+                    {state === 'paused' ? 'Reanudar' : 'Pausar'}
+                  </Button>
+                  <Button className="h-12 flex-1" variant="primary" onClick={finish}>
+                    Finalizar
+                  </Button>
+                </div>
+              </>
             )}
-            <Button variant="primary" onClick={finish} disabled={state === 'idle'}>
-              Finalizar e identificar voces
-            </Button>
           </div>
-
-          <p className="mt-2.5 text-center text-[11px] text-ink-3">
-            El audio se envía en fragmentos de {CHUNK_MS / 1000} s. La grabación no empieza sin tu
-            permiso explícito.
-          </p>
         </Card>
 
-        <Card title="Participantes presentes" bodyClassName="px-4 py-1">
-          <ul className="flex list-none flex-col">
-            {meeting.participants.map((p, i) => (
-              <li key={p.name} className={`flex items-center gap-3 py-2.5 ${i > 0 ? 'border-t border-line' : ''}`}>
-                <Avatar initials={p.name.split(' ').slice(0, 2).map((w) => w[0]).join('')} size={30} />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[13px] font-medium">{p.name}</span>
-                  <span className="block text-[11px] text-ink-3 capitalize">{p.role}</span>
-                </span>
-                <label className="flex cursor-pointer items-center gap-2 text-[11px] text-ink-3">
-                  <input
-                    type="checkbox"
-                    checked={present[p.name] ?? false}
-                    onChange={(e) => setPresent((s) => ({ ...s, [p.name]: e.target.checked }))}
-                    className="size-4 accent-[var(--accent)]"
-                  />
-                  Presente
-                </label>
-              </li>
-            ))}
-          </ul>
-        </Card>
+        <Asistentes
+          participants={meeting.participants}
+          present={present}
+          setPresent={setPresent}
+          locked={started}
+          presentNames={presentNames}
+        />
       </div>
 
       {/* ── Transcripción ── */}
       <Card
         className="min-w-0 flex-1 max-lg:w-full"
-        title="Transcripción en vivo"
+        title="Lo que se va diciendo"
         aside={
-          voiceCount > 0 ? (
-            <Pill tone="accent">
-              {voiceCount} voz/voces detectadas
-            </Pill>
-          ) : null
+          <div className="flex items-center gap-2.5">
+            {voiceCount > 0 && !discreet && (
+              <Pill tone="accent">{voiceCount === 1 ? '1 voz' : `${voiceCount} voces`}</Pill>
+            )}
+            <button
+              type="button"
+              onClick={() => setDiscreet((d) => !d)}
+              aria-pressed={discreet}
+              /* Sin `min-h-0`: es un control que se pulsa con prisa, cuando
+                 alguien se asoma a la pantalla, y necesita el objetivo táctil
+                 completo de iPad. */
+              className={`rounded-full border px-4 text-[11.5px] font-semibold transition ${
+                discreet
+                  ? 'border-accent-border bg-accent-soft text-accent-text'
+                  : 'border-line bg-surface-2 text-ink-3 hover:text-ink-2'
+              }`}
+            >
+              {discreet ? 'Texto oculto' : 'Modo discreto'}
+            </button>
+          </div>
         }
         bodyClassName="p-0"
       >
-        <div ref={feedRef} className="max-h-[420px] overflow-y-auto px-4 pb-4">
-          {segments.length === 0 && marks.length === 0 ? (
-            <p className="py-10 text-center text-[13px] text-ink-3">
-              {state === 'idle'
-                ? 'La transcripción aparecerá aquí cuando inicies la grabación.'
-                : 'Esperando el primer fragmento transcrito…'}
-            </p>
-          ) : (
-            <ul className="flex list-none flex-col">
-              {segments.map((s, i) => (
-                <li
-                  key={s.timestamp}
-                  className={`grid grid-cols-[64px_1fr] gap-3 py-2.5 ${i > 0 ? 'border-t border-line' : ''}`}
-                >
-                  <span className="tabular pt-0.5 font-data text-[11px] text-ink-3">
-                    {s.timestamp.slice(11, 19)}
-                  </span>
-                  <span>
-                    <span className="flex flex-wrap items-center gap-2">
-                      {/* Durante la reunión solo se muestra qué voz es. Ponerle
-                          nombre se hace al terminar, de una vez por persona. */}
-                      <span
-                        className={`rounded-md border px-1.5 py-0.5 text-[11px] font-bold tracking-wide uppercase ${
-                          s.speaker
-                            ? 'border-ok-border bg-ok-soft text-ok'
-                            : s.speaker_tag
-                              ? 'border-accent-border bg-accent-soft text-accent-text'
-                              : 'border-line bg-surface-2 text-ink-3'
-                        }`}
-                      >
-                        {s.speaker ?? (s.speaker_tag ? `Voz ${s.speaker_tag}` : 'Sin identificar')}
+        {discreet ? (
+          <Discreto recording={recording} voiceCount={voiceCount} marks={marks.length} />
+        ) : (
+          <div ref={feedRef} className="max-h-[480px] min-h-[260px] overflow-y-auto px-4 py-1">
+            {feed.length === 0 ? (
+              <p className="px-2 py-16 text-center text-[13px] leading-relaxed text-ink-3">
+                {!started
+                  ? 'Aquí aparecerá la conversación en cuanto empieces a grabar.'
+                  : 'Escuchando… el primer texto tarda unos segundos en aparecer.'}
+              </p>
+            ) : (
+              <ul className="flex list-none flex-col gap-1 py-2">
+                {feed.map((item) =>
+                  item.kind === 'mark' ? (
+                    <li
+                      key={item.key}
+                      className="animate-fade-up my-1 flex items-center gap-2.5 rounded-[10px] border border-accent-border bg-accent-soft px-3 py-2"
+                    >
+                      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="size-3.5 shrink-0 text-accent-text">
+                        <path d="M6 3h12v18l-6-4.5L6 21z" />
+                      </svg>
+                      <span className="text-[12px] font-semibold text-accent-text">
+                        Momento marcado
                       </span>
-                      {s.flagged_by_teacher && <Pill tone="accent">Acuerdo marcado</Pill>}
-                    </span>
-                    <span className="mt-1 block text-[13px] text-ink-2">
-                      {s.clean_text ?? s.text}
-                    </span>
-                  </span>
-                </li>
-              ))}
-              {marks.map((m) => (
-                <li key={m} className="my-1 grid grid-cols-[64px_1fr] gap-3 rounded-lg bg-accent-soft px-2.5 py-2.5">
-                  <span className="tabular pt-0.5 font-data text-[11px] text-ink-3">{m}</span>
-                  <span>
-                    <span className="block text-[11px] font-bold tracking-wide text-accent-text uppercase">
-                      Marca manual de la docente
-                    </span>
-                    <span className="mt-0.5 block text-[13px] text-ink-2">
-                      Punto marcado para revisar al generar el acta.
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+                      <span className="tabular ml-auto font-data text-[11px] text-ink-3">
+                        {item.label}
+                      </span>
+                    </li>
+                  ) : (
+                    <li key={item.key} className="animate-fade-up flex gap-3 py-2">
+                      <VoiceMark tag={item.tag} name={item.name} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-[12px] font-semibold text-ink-2">
+                            {item.name ?? (item.tag ? `Voz ${item.tag}` : 'Sin identificar')}
+                          </span>
+                          <span className="tabular font-data text-[10.5px] text-ink-3">
+                            {item.at.slice(11, 16)}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-[13.5px] leading-relaxed text-ink-2">
+                          {item.texts.join(' ')}
+                        </p>
+                      </div>
+                    </li>
+                  ),
+                )}
+              </ul>
+            )}
+          </div>
+        )}
 
-        <footer className="flex flex-wrap items-center gap-2 border-t border-line px-4 py-2.5">
-          <WfTag>
-            {isMock
-              ? 'MODO DEMOSTRACIÓN · NO SE ENVÍA AUDIO'
-              : 'TRANSCRIPCIÓN CON SEPARACIÓN DE VOCES'}
-          </WfTag>
+        <footer className="border-t border-line px-4 py-3 text-[11.5px] leading-relaxed text-ink-3">
+          {isMock
+            ? 'Modo demostración: no se envía audio a ningún servicio.'
+            : 'El texto de esta pantalla es provisional. Al terminar se transcribe la reunión entera de nuevo, y esa es la versión que se usa para el acta.'}
         </footer>
       </Card>
     </div>
+  );
+}
+
+/* ── Piezas ───────────────────────────────────────────────────────────────── */
+
+/**
+ * Una respuesta a una sola pregunta: ¿se está guardando?
+ *
+ * Antes esta zona mostraba el número de fragmento y su estado de envío. Eso es
+ * contabilidad interna del programa: la docente no sabe qué es un fragmento ni
+ * tiene por qué, y contarlos no le dice si su reunión está a salvo.
+ */
+function SaveStatus({
+  started,
+  saving,
+  unsaved,
+}: {
+  started: boolean;
+  saving: boolean;
+  unsaved: number;
+}) {
+  if (!started) return null;
+
+  const [tono, texto] =
+    unsaved > 0
+      ? (['warn', 'Algún tramo no llegó al servidor. Se recupera al finalizar.'] as const)
+      : saving
+        ? (['neutral', 'Guardando…'] as const)
+        : (['ok', 'Se está guardando'] as const);
+
+  const color =
+    tono === 'warn' ? 'text-warn' : tono === 'ok' ? 'text-ok' : 'text-ink-3';
+
+  return (
+    <p className={`mt-4 flex items-center gap-2 text-center text-[12px] ${color}`}>
+      <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-current" />
+      {texto}
+    </p>
+  );
+}
+
+/**
+ * Distintivo de voz.
+ *
+ * Mientras la reunión dura no se sabe quién es cada voz —eso se decide al
+ * terminar—, pero sí se sabe que son distintas. El color, derivado de la propia
+ * etiqueta, es estable durante toda la reunión: permite seguir la conversación
+ * sin leer ninguna etiqueta.
+ */
+function VoiceMark({ tag, name }: { tag?: string; name?: string }) {
+  if (name) return <PersonAvatar name={name} size={30} />;
+
+  if (!tag) {
+    return (
+      <span className="grid size-[30px] shrink-0 place-items-center rounded-full border border-dashed border-line-strong text-[11px] text-ink-3">
+        ?
+      </span>
+    );
+  }
+
+  const color = colorFor(`voz-${tag}`);
+  return (
+    <span
+      style={{ background: `linear-gradient(145deg, ${color.ring}, ${color.bg})` }}
+      className="grid size-[30px] shrink-0 place-items-center rounded-full text-[12px] font-bold text-white"
+    >
+      {tag}
+    </span>
+  );
+}
+
+/**
+ * Modo discreto.
+ *
+ * El iPad está sobre la mesa entre la docente y la familia, y lo que aparece en
+ * pantalla lo lee todo el mundo. La transcripción en vivo se equivoca con
+ * frecuencia, y leerse a uno mismo mal transcrito en plena conversación —o leer
+ * lo que acaba de decir el otro— cambia la reunión.
+ *
+ * Se sigue grabando y transcribiendo igual: lo único que se oculta es el texto.
+ */
+function Discreto({
+  recording,
+  voiceCount,
+  marks,
+}: {
+  recording: boolean;
+  voiceCount: number;
+  marks: number;
+}) {
+  return (
+    <div className="grid min-h-[260px] place-content-center px-6 py-12 text-center">
+      <span
+        aria-hidden
+        className={`mx-auto grid size-14 place-items-center rounded-full border border-line bg-surface-2 ${
+          recording ? 'shadow-glow-soft' : ''
+        }`}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" className="size-6 text-accent-text">
+          <path d="M3 12h2.5l2-5 3 10 2.5-7 2 4H21" />
+        </svg>
+      </span>
+      <p className="mt-4 text-[14px] font-semibold">
+        {recording ? 'Se sigue grabando y transcribiendo' : 'Texto oculto'}
+      </p>
+      <p className="mx-auto mt-1.5 max-w-[38ch] text-[12.5px] leading-relaxed text-ink-3">
+        El texto está oculto para que nadie lo lea por encima del hombro. No se pierde nada: al
+        terminar la reunión aparece completo.
+      </p>
+      {(voiceCount > 0 || marks > 0) && (
+        <p className="tabular mt-4 font-data text-[11px] text-ink-3">
+          {voiceCount > 0 && `${voiceCount} voz/voces`}
+          {voiceCount > 0 && marks > 0 && ' · '}
+          {marks > 0 && `${marks} momento(s) marcado(s)`}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Asistentes.
+ *
+ * Antes de empezar es una lista con casillas: decir quién está presente es un
+ * paso de preparación y mejora la separación de voces. Una vez grabando deja de
+ * ser editable y se encoge, porque a mitad de reunión nadie cambia la lista y el
+ * espacio lo necesita lo que sí está pasando.
+ */
+function Asistentes({
+  participants,
+  present,
+  setPresent,
+  locked,
+  presentNames,
+}: {
+  participants: Meeting['participants'];
+  present: Record<string, boolean>;
+  setPresent: (fn: (s: Record<string, boolean>) => Record<string, boolean>) => void;
+  locked: boolean;
+  presentNames: string[];
+}) {
+  if (locked) {
+    return (
+      <Card bodyClassName="px-4 py-3">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center">
+            {presentNames.map((name, i) => (
+              <span key={name} style={{ marginLeft: i === 0 ? 0 : -9, zIndex: presentNames.length - i }}>
+                <PersonAvatar name={name} size={30} className="ring-2 ring-[var(--surface)]" />
+              </span>
+            ))}
+          </div>
+          <p className="min-w-0 flex-1 text-[12.5px] text-ink-3">
+            {presentNames.length === 1
+              ? '1 persona en la reunión'
+              : `${presentNames.length} personas en la reunión`}
+          </p>
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card title="¿Quién está en la reunión?" bodyClassName="px-4 py-1">
+      <ul className="flex list-none flex-col">
+        {participants.map((p, i) => {
+          const marcado = present[p.name] ?? false;
+          return (
+            <li key={p.name} className={i > 0 ? 'border-t border-line' : ''}>
+              {/* Toda la fila es el objetivo táctil, no sólo la casilla. */}
+              <label className="flex cursor-pointer items-center gap-3 py-2.5">
+                <PersonAvatar name={p.name} size={32} />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13px] font-medium">{p.name}</span>
+                  <span className="block text-[11px] text-ink-3">{roleLabel(p.role)}</span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={marcado}
+                  onChange={(e) => setPresent((s) => ({ ...s, [p.name]: e.target.checked }))}
+                  className="size-5 shrink-0 accent-[var(--accent)]"
+                />
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+    </Card>
+  );
+}
+
+/** Espera con explicación: decir qué se está haciendo y por qué tarda. */
+function Working({ title, detail }: { title: string; detail: string }) {
+  return (
+    <Card>
+      <div className="grid place-items-center px-6 py-16 text-center">
+        <span aria-hidden className="flex items-end gap-1">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <span
+              key={i}
+              style={{ animationDelay: `${i * 110}ms` }}
+              className="animate-wave h-7 w-1.5 rounded-full bg-accent"
+            />
+          ))}
+        </span>
+        <p className="mt-5 text-[15px] font-semibold">{title}</p>
+        <p className="mx-auto mt-1.5 max-w-[44ch] text-[12.5px] leading-relaxed text-ink-3">
+          {detail}
+        </p>
+      </div>
+    </Card>
   );
 }
