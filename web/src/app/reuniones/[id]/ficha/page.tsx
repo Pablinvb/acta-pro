@@ -3,9 +3,10 @@ import { notFound } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { Historial } from '@/components/Historial';
 import { Avatar, Banner, Card, Label, PageHead, WfTag } from '@/components/ui';
-import { findMeeting, previousDocuments, representative, student } from '@/lib/mock/data';
+import { initialsOf } from '@/components/people';
+import { representative, student } from '@/lib/mock/data';
 import { requireSession } from '@/lib/session';
-import { history } from '@/services';
+import { documents, history, meetings } from '@/services';
 
 export const metadata = { title: 'Ficha previa · ACTA PRO' };
 
@@ -21,7 +22,7 @@ function Stat({ value, label }: { value: string; label: string }) {
 export default async function FichaPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await requireSession();
   const { id } = await params;
-  const meeting = findMeeting(decodeURIComponent(id));
+  const meeting = await meetings.findOrNull(decodeURIComponent(id));
   if (!meeting) notFound();
 
   const verified = meeting.data_status !== 'manual_verification_required';
@@ -37,9 +38,31 @@ export default async function FichaPage({ params }: { params: Promise<{ id: stri
     excludeMeetingId: meeting.meeting_id,
   });
 
-  const actasDelEstudiante = previousDocuments.filter(
-    (d) => d.student_id === meeting.student_id,
-  );
+  /*
+   * Filtrado por estudiante en el propio archivo. Antes se pintaba la lista
+   * entera, de modo que en la ficha de Juan aparecían las actas de Camila y de
+   * Mateo. En un centro educativo eso no es un fallo de maquetación: es enseñar
+   * el historial de una familia a otra.
+   */
+  const actasDelEstudiante = await documents.search({ studentId: meeting.student_id });
+
+  /*
+   * Los datos académicos vienen de Runachay, que todavía no está conectado. Se
+   * enseñan sólo si son de este estudiante: antes se pintaban siempre los del
+   * expediente de demostración, así que abrir la ficha de Camila mostraba las
+   * notas de Juan.
+   */
+  const expediente = student.student_id === meeting.student_id ? student : null;
+
+  /*
+   * El parentesco sale de cómo consta el representante entre los participantes,
+   * que es dato de la reunión. Teléfono e idioma vienen de Runachay y sólo se
+   * enseñan si son de esta familia.
+   */
+  const rol = meeting.participants.find((p) => p.name === meeting.representative_name)?.role;
+  const parentesco = rol === 'father' ? 'Padre' : rol === 'mother' ? 'Madre' : 'Representante';
+  const contacto =
+    representative.email === meeting.representative_email ? representative : null;
 
   return (
     <AppShell meeting={meeting} teacherName={session.name} teacherId={session.teacherId}>
@@ -61,30 +84,47 @@ export default async function FichaPage({ params }: { params: Promise<{ id: stri
             >
               <div className="flex flex-col gap-4">
                 <div className="flex items-center gap-3.5">
-                  <Avatar initials="JP" size={52} />
+                  <Avatar initials={initialsOf(meeting.student_name)} size={52} />
                   <div>
-                    <p className="text-[17px] font-semibold">{student.name}</p>
+                    <p className="text-[17px] font-semibold">{meeting.student_name}</p>
                     <p className="text-[13px] text-ink-3">
-                      {student.course} · <span className="font-data text-[11px]">{student.student_id}</span>
+                      {meeting.course} ·{' '}
+                      <span className="font-data text-[11px]">{meeting.student_id}</span>
                     </p>
                   </div>
                 </div>
 
-                <div className="flex gap-px overflow-hidden rounded-[10px] border border-line bg-line">
-                  <Stat value={String(student.average ?? '—').replace('.', ',')} label="Promedio matemáticas" />
-                  <Stat
-                    value={student.attendance_rate ? `${Math.round(student.attendance_rate * 100)} %` : '—'}
-                    label="Asistencia del parcial"
-                  />
-                  <Stat value={String(student.late_arrivals ?? '—')} label="Atrasos en julio" />
-                </div>
+                {expediente ? (
+                  <>
+                    <div className="flex gap-px overflow-hidden rounded-[10px] border border-line bg-line">
+                      <Stat
+                        value={String(expediente.average ?? '—').replace('.', ',')}
+                        label="Promedio matemáticas"
+                      />
+                      <Stat
+                        value={
+                          expediente.attendance_rate
+                            ? `${Math.round(expediente.attendance_rate * 100)} %`
+                            : '—'
+                        }
+                        label="Asistencia del parcial"
+                      />
+                      <Stat value={String(expediente.late_arrivals ?? '—')} label="Atrasos en julio" />
+                    </div>
 
-                <div>
-                  <Label>Observaciones registradas</Label>
-                  <ul className="mt-2 flex list-disc flex-col gap-1.5 pl-5 text-[13px] text-ink-2">
-                    {student.observations?.map((o) => <li key={o}>{o}</li>)}
-                  </ul>
-                </div>
+                    <div>
+                      <Label>Observaciones registradas</Label>
+                      <ul className="mt-2 flex list-disc flex-col gap-1.5 pl-5 text-[13px] text-ink-2">
+                        {expediente.observations?.map((o) => <li key={o}>{o}</li>)}
+                      </ul>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-[13px] leading-relaxed text-ink-3">
+                    Runachay no ha devuelto el expediente académico de este estudiante. La reunión
+                    puede celebrarse igual; el acta no incluirá calificaciones.
+                  </p>
+                )}
               </div>
             </Card>
 
@@ -127,19 +167,19 @@ export default async function FichaPage({ params }: { params: Promise<{ id: stri
             <Card title="Representante">
               <div className="flex flex-col gap-3.5">
                 <div className="flex items-center gap-3">
-                  <Avatar initials="ML" size={42} />
+                  <Avatar initials={initialsOf(meeting.representative_name)} size={42} />
                   <div>
-                    <p className="text-[15px] font-semibold">{representative.name}</p>
+                    <p className="text-[15px] font-semibold">{meeting.representative_name}</p>
                     <p className="text-[13px] text-ink-3 capitalize">
-                      {representative.relation} · representante legal
+                      {parentesco} · representante legal
                     </p>
                   </div>
                 </div>
                 <dl className="flex flex-col gap-1.5 text-[13px]">
                   {[
-                    ['Correo', representative.email, false],
-                    ['Teléfono', representative.phone ?? '—', true],
-                    ['Idioma', representative.language ?? '—', false],
+                    ['Correo', meeting.representative_email || '—', false],
+                    ['Teléfono', contacto?.phone ?? '—', true],
+                    ['Idioma', contacto?.language ?? 'Español', false],
                   ].map(([k, v, mono]) => (
                     <div key={k as string} className="flex gap-3">
                       <dt className="w-[74px] shrink-0 text-ink-3">{k}</dt>

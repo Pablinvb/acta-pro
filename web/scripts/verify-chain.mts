@@ -12,6 +12,7 @@
  */
 
 import { readFile } from 'node:fs/promises';
+import { cargarEnv } from './env.mts';
 import { basename, isAbsolute, resolve } from 'node:path';
 import { align, uncertainCount, MIN_CONFIDENCE } from '../src/services/transcription/alignment.ts';
 
@@ -26,11 +27,7 @@ const archivo = isAbsolute(argumento)
 const numSpeakers = process.argv[3] ? Number(process.argv[3]) : undefined;
 
 try {
-  const env = await readFile(new URL('../.env.local', import.meta.url), 'utf8');
-  for (const l of env.split('\n')) {
-    const m = l.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
-  }
+  await cargarEnv(new URL('../.env.local', import.meta.url));
 } catch {
   /* sin .env.local */
 }

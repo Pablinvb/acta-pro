@@ -111,6 +111,7 @@ npm --prefix web run verify:alignment   # 20 · quién dijo qué
 npm --prefix web run verify:seal        # 18 · sello de integridad
 npm --prefix web run verify:tsa -- --red# 20 · sellado RFC 3161, contra la autoridad real
 npm --prefix web run verify:marks       # 16 · marcas de la docente
+npm --prefix web run verify:supabase    # 12 · la base alojada, si la hay
 ```
 
 ## Estado
@@ -118,15 +119,17 @@ npm --prefix web run verify:marks       # 16 · marcas de la docente
 Interfaz, servicios y persistencia funcionan de principio a fin, y la cadena de
 transcripción está comprobada contra una grabación real.
 
+**La persistencia está comprobada contra una base alojada real** (Supabase,
+PostgreSQL 17): se firma un acta, se mata el servidor, se levanta otro proceso y
+el acta sigue ahí con sus firmas y su sello, que verifica con OpenSSL.
+
 Lo que falta antes de usarlo con reuniones reales:
 
-- **Base de datos.** El adaptador de PostgreSQL está verificado contra PGlite,
-  pero nunca se ha ejecutado contra una base alojada. Hoy el modo por defecto es
-  memoria, y eso significa que **lo firmado se pierde al reiniciar**.
 - **Autoridad de sellado acreditada.** Por defecto apunta a FreeTSA, que
   funciona pero no tiene valor legal en Ecuador. Se cambia con una variable.
 - Almacén de usuarios: hoy la autenticación usa una contraseña compartida.
-- El esquema de respuesta de Runachay sigue sin conocerse.
+- El esquema de respuesta de Runachay sigue sin conocerse, así que el expediente
+  académico del estudiante todavía sale de los datos de demostración.
 
 ## Privacidad
 

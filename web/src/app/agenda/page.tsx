@@ -5,15 +5,9 @@ import { IconCalendar, IconDocument, IconMic, IconSignature } from '@/components
 import { AvatarStack, PersonAvatar } from '@/components/people';
 import { Banner, Card, Label, Pill, type Tone } from '@/components/ui';
 import { CheckList, DocumentPreview, ProgressRing, Waveform } from '@/components/visuals';
-import {
-  ACTIVE_MEETING_ID,
-  dashboardSummary,
-  findMeeting,
-  meetings,
-  minutes,
-  previousDocuments,
-} from '@/lib/mock/data';
+import { dashboardSummary } from '@/lib/mock/data';
 import { requireSession } from '@/lib/session';
+import { actaGenerator, documents, meetings as meetingService } from '@/services';
 import type { Meeting } from '@/lib/types';
 
 export const metadata = { title: 'Panel · ACTA PRO' };
@@ -76,12 +70,29 @@ function Tile({
 
 export default async function PanelPage() {
   const session = await requireSession();
-  const proxima = meetings.find((m) => m.status === 'scheduled') ?? meetings[0];
-  const activa = findMeeting(ACTIVE_MEETING_ID)!;
-  const incompletas = meetings.filter((m) => m.data_status === 'manual_verification_required');
 
-  const acuerdos = minutes.sections.find((s) => s.title === 'Acuerdos')?.items ?? [];
-  const compromisos = minutes.sections.find((s) => s.title === 'Compromisos')?.items ?? [];
+  /*
+   * Las reuniones salen del repositorio, no de una lista fija. Se muestran las
+   * que siguen abiertas: una vez enviada, el acta vive en el repositorio de
+   * actas y ya no es trabajo pendiente. Sin este filtro la agenda crecería con
+   * el curso hasta dejar de servir para lo que sirve, que es saber qué toca
+   * ahora.
+   */
+  const abiertas = (await meetingService.list({ teacherId: session.teacherId })).filter(
+    (m) => m.status !== 'sent',
+  );
+
+  const proxima = abiertas.find((m) => m.status === 'scheduled') ?? abiertas[0];
+  const activa = abiertas.find((m) => m.status !== 'scheduled') ?? proxima;
+  const incompletas = abiertas.filter((m) => m.data_status === 'manual_verification_required');
+
+  // El acta que la docente tiene a medias, si la hay.
+  const enRevision = abiertas.find((m) => m.status === 'awaiting_teacher_review');
+  const acta = enRevision ? await actaGenerator.find(enRevision.meeting_id) : null;
+  const acuerdos = acta?.sections.find((s) => s.title === 'Acuerdos')?.items ?? [];
+  const compromisos = acta?.sections.find((s) => s.title === 'Compromisos')?.items ?? [];
+
+  const archivadas = await documents.search({});
 
   return (
     <AppShell meeting={activa} teacherName={session.name} teacherId={session.teacherId}>
@@ -93,7 +104,7 @@ export default async function PanelPage() {
               {saludo()}, {session.name.split(' ')[0]}
             </h1>
             <p className="mt-1 text-[13px] text-ink-3">
-              Tienes {meetings.length} reuniones hoy · sincronizado desde Google Calendar
+              Tienes {abiertas.length} reuniones hoy · sincronizado desde Google Calendar
             </p>
           </div>
         </div>
@@ -140,7 +151,7 @@ export default async function PanelPage() {
           <div className="flex min-w-0 flex-1 flex-col gap-3.5 max-lg:w-full">
             <Card className="animate-card" title="Hoy" bodyClassName="px-2 py-1">
               <ul className="stagger flex list-none flex-col">
-                {meetings.map((m) => {
+                {abiertas.map((m) => {
                   const state = rowState(m);
                   return (
                     <li key={m.meeting_id}>
@@ -237,11 +248,11 @@ export default async function PanelPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[13px] font-medium">
-                    {previousDocuments[0].student_name}
+                    {archivadas[0].student_name}
                   </p>
-                  <p className="mt-0.5 text-xs text-ink-3">{previousDocuments[0].meeting_type}</p>
+                  <p className="mt-0.5 text-xs text-ink-3">{archivadas[0].meeting_type}</p>
                   <p className="tabular mt-1 font-data text-[11px] text-ink-3">
-                    {previousDocuments[0].date}
+                    {archivadas[0].date}
                   </p>
                   <Link
                     href="/repositorio"

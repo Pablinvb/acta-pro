@@ -34,7 +34,8 @@ export function EnvioClient({
   meeting: Meeting;
   drivePath: string;
   transcriptVaultPath: string;
-  followUp: FollowUp;
+  /** Puede no haberlo: no toda reunión acuerda una revisión. */
+  followUp?: FollowUp;
   canSend: boolean;
   signed: boolean;
 }) {
@@ -76,7 +77,9 @@ export function EnvioClient({
                 académico de {meeting.student_name.split(' ')[0]} en Matemáticas. En ella constan los
                 acuerdos y compromisos establecidos por ambas partes.
               </p>
-              <p>La próxima reunión de seguimiento está prevista para el {followUp.date}.</p>
+              {followUp && (
+                <p>La próxima reunión de seguimiento está prevista para el {followUp.date}.</p>
+              )}
               <p>
                 Atentamente,
                 <br />
@@ -161,11 +164,19 @@ export function EnvioClient({
           </p>
         </Banner>
 
-        <Card title="Seguimiento automático" >
-          <p className="text-[13px]">Se creará un evento en Google Calendar:</p>
-          <p className="mt-1.5 text-[13px] text-ink-2">
-            <b>{followUp.date}, 10:00</b> — {followUp.description}
-          </p>
+        <Card title="Seguimiento automático">
+          {followUp ? (
+            <>
+              <p className="text-[13px]">Se creará un evento en Google Calendar:</p>
+              <p className="mt-1.5 text-[13px] text-ink-2">
+                <b>{followUp.date}, 10:00</b> — {followUp.description}
+              </p>
+            </>
+          ) : (
+            <p className="text-[13px] text-ink-3">
+              Esta reunión no acordó una fecha de seguimiento, así que no se creará ningún evento.
+            </p>
+          )}
         </Card>
 
         {!canSend && (

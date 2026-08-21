@@ -2,16 +2,17 @@ import { notFound } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { PageHead } from '@/components/ui';
 import { isDemo } from '@/services/config';
-import { findMeeting, transcript } from '@/lib/mock/data';
+import { transcript } from '@/lib/mock/data';
 import { requireSession } from '@/lib/session';
 import { SalaClient } from './SalaClient';
+import { meetings } from '@/services';
 
 export const metadata = { title: 'Sala de reunión · ACTA PRO' };
 
 export default async function SalaPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await requireSession();
   const { id } = await params;
-  const meeting = findMeeting(decodeURIComponent(id));
+  const meeting = await meetings.findOrNull(decodeURIComponent(id));
   if (!meeting) notFound();
 
   return (

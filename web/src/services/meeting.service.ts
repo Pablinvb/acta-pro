@@ -19,6 +19,17 @@ export async function find(meetingId: string): Promise<Meeting> {
   return meeting;
 }
 
+/**
+ * Como `find`, pero devuelve `null` en lugar de lanzar.
+ *
+ * Para las pantallas: una reunión que no existe es un 404, no un error del
+ * servidor, y las páginas quieren llamar a `notFound()` en lugar de capturar
+ * una excepción.
+ */
+export async function findOrNull(meetingId: string): Promise<Meeting | null> {
+  return getRepositories().meetings.find(meetingId);
+}
+
 /** Registro preliminar. Idempotente: volver a llamar no duplica la reunión. */
 export async function register(meeting: Meeting): Promise<Meeting> {
   const saved = await getRepositories().meetings.upsert({ ...meeting, status: 'scheduled' });

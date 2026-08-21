@@ -1,6 +1,7 @@
 import 'server-only';
-import type { MeetingMinutes, Signature } from '@/lib/types';
+import type { ArchivedDocument, MeetingMinutes, Signature } from '@/lib/types';
 import { getRepositories } from '@/repositories';
+import type { DocumentSearch } from '@/repositories/types';
 import { noEncontrado } from './errors';
 
 /**
@@ -111,6 +112,17 @@ ${body}
 }
 
 /** Genera el documento final de una reunión ya firmada. */
+/**
+ * Actas archivadas, con los mismos filtros que el repositorio.
+ *
+ * Existe para que las pantallas no tengan que alcanzar el repositorio por su
+ * cuenta: si algún día el archivo deja de ser una tabla, hay un solo sitio que
+ * cambiar.
+ */
+export async function search(criteria: DocumentSearch = {}): Promise<ArchivedDocument[]> {
+  return getRepositories().documents.search(criteria);
+}
+
 export async function build(meetingId: string): Promise<{ html: string; documentCode: string }> {
   const repos = getRepositories();
   const minutes = await repos.minutes.find(meetingId);

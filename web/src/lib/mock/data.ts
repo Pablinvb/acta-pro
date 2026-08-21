@@ -510,30 +510,43 @@ export const previousDocuments: ArchivedDocument[] = [
 /* ── Reuniones anteriores del mismo estudiante ────────────────────────────── */
 
 /**
- * Las dos reuniones previas de Juan Pérez, con sus actas.
+ * Las reuniones previas, con sus actas.
  *
  * Existen para que el historial tenga de dónde tirar: sin ellas la ficha previa
  * enseñaría siempre «primera reunión» y no habría forma de comprobar que los
- * antecedentes se heredan bien. Coinciden con las actas de `previousDocuments`,
- * para que el archivo y el historial cuenten lo mismo.
+ * antecedentes se heredan bien.
+ *
+ * Hay **una por cada acta de `previousDocuments`**, y eso no es una comodidad:
+ * el archivo referencia la reunión de la que salió cada acta. Faltaban las de
+ * Camila y Mateo, y en memoria nadie lo notaba porque no hay integridad
+ * referencial; contra PostgreSQL la clave foránea lo rechaza. Los datos de
+ * demostración tienen que ser consistentes o esconden fallos reales.
  */
 function reunionPrevia(
   id: string,
   date: string,
   meetingType: string,
+  quien: {
+    studentId: string;
+    studentName: string;
+    course: string;
+    representativeName: string;
+    representativeEmail: string;
+    representativeRole: 'mother' | 'father';
+  },
 ): Meeting {
   return {
     meeting_id: id,
     teacher_id: 'T-045',
-    student_id: 'S-0231',
+    student_id: quien.studentId,
     teacher_name: 'Ana Pérez',
     teacher_email: 'ana.perez@colegio.edu.ec',
     teacher_phone: '+593 98 445 2210',
     teacher_position: 'Docente de Matemáticas',
-    student_name: 'Juan Pérez López',
-    course: '8.º EGB "B"',
-    representative_name: 'María López',
-    representative_email: 'maria.lopez@email.com',
+    student_name: quien.studentName,
+    course: quien.course,
+    representative_name: quien.representativeName,
+    representative_email: quien.representativeEmail,
     meeting_type: meetingType,
     date,
     start_time: '09:00',
@@ -544,15 +557,45 @@ function reunionPrevia(
     school_year: SCHOOL_YEAR,
     participants: [
       { role: 'teacher', name: 'Ana Pérez', present: true },
-      { role: 'mother', name: 'María López', present: true },
-      { role: 'student', name: 'Juan Pérez', present: true },
+      { role: quien.representativeRole, name: quien.representativeName, present: true },
+      { role: 'student', name: quien.studentName.split(' ').slice(0, 2).join(' '), present: true },
     ],
   };
 }
 
+const JUAN = {
+  studentId: 'S-0231',
+  studentName: 'Juan Pérez López',
+  course: '8.º EGB "B"',
+  representativeName: 'María López',
+  representativeEmail: 'maria.lopez@email.com',
+  representativeRole: 'mother' as const,
+};
+
+const CAMILA = {
+  studentId: 'S-0244',
+  studentName: 'Camila Andrade Ruiz',
+  course: '8.º EGB "B"',
+  representativeName: 'Jorge Andrade',
+  representativeEmail: 'jorge.andrade@email.com',
+  representativeRole: 'father' as const,
+};
+
+const MATEO = {
+  studentId: 'S-0119',
+  studentName: 'Mateo Chávez Salinas',
+  course: '9.º EGB "A"',
+  representativeName: 'Rosa Salinas',
+  representativeEmail: '',
+  representativeRole: 'mother' as const,
+};
+
 export const previousMeetings: Meeting[] = [
-  reunionPrevia('ACTA-2026-0047', '2026-03-08', 'Rendimiento académico'),
-  reunionPrevia('ACTA-2026-0114', '2026-05-22', 'Seguimiento de compromisos'),
+  reunionPrevia('ACTA-2026-0047', '2026-03-08', 'Rendimiento académico', JUAN),
+  reunionPrevia('ACTA-2026-0114', '2026-05-22', 'Seguimiento de compromisos', JUAN),
+  reunionPrevia('ACTA-2026-0098', '2026-04-17', 'Convivencia escolar', CAMILA),
+  reunionPrevia('ACTA-2026-0061', '2026-03-21', 'Rendimiento académico', MATEO),
+  reunionPrevia('ACTA-2026-0132', '2026-06-09', 'Seguimiento de compromisos', MATEO),
 ];
 
 function actaPrevia(

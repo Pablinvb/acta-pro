@@ -10,6 +10,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "verify:db": "node --conditions=react-server db/verify.mts",
+    "verify:supabase": "node --conditions=react-server scripts/verify-supabase.mts",
+    "db:seed": "node --conditions=react-server scripts/seed.mts",
     "verify:alignment": "node --conditions=react-server scripts/verify-alignment.mts",
     "verify:acta": "node --conditions=react-server scripts/verify-acta.mts",
     "verify:marks": "node --conditions=react-server scripts/verify-marks.mts",

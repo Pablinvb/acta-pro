@@ -447,9 +447,55 @@ DATABASE_SSL=true
 DATABASE_POOL_MAX=5
 ```
 
+5. Carga los datos de demostración y comprueba que todo responde:
+
+```bash
+npm --prefix web run db:seed
+npm --prefix web run verify:supabase
+```
+
 > `DATABASE_POOL_MAX` bajo a propósito con el pooler: quien reparte las
 > conexiones es Supabase, y abrir un pool grande contra un pool ajeno sólo sirve
 > para chocar con su límite.
+
+### Dos trampas que cuestan una tarde
+
+Las dos producen el mismo síntoma —la base conecta, las comprobaciones pasan, y
+la aplicación no guarda nada— y por eso `verify:supabase` las busca antes de
+tocar la red.
+
+**Caracteres especiales en la contraseña.** Si contiene `@`, `$`, `#`, `/` o
+`?`, hay que **codificarla en porcentaje** dentro de la URL: `@` → `%40`,
+`$` → `%24`. Un `@` sin codificar parte la cadena donde no toca y `pg` autentica
+con una contraseña truncada. Y el `$` es peor, porque Next expande variables al
+leer `.env` (dotenv-expand): un `$` dentro de la contraseña se sustituye por una
+variable inexistente y desaparece sin decir nada.
+
+**Claves repetidas en `.env.local`.** Gana **la última**. Este proyecto lo sufrió
+con `ACTA_PRO_PERSISTENCE`: `postgres` arriba y un `memory` olvidado al final.
+La base estaba perfectamente conectada y la aplicación guardaba en memoria.
+
+> Los scripts leen `.env.local` con `scripts/env.mts`, que aplica la misma regla
+> que dotenv. Antes cada uno tenía su propio bucle donde ganaba la **primera**
+> aparición, de modo que la comprobación decía «conectado a PostgreSQL» mientras
+> la aplicación usaba memoria. Un verificador que lee la configuración de forma
+> distinta a la aplicación no es que no ayude: miente con autoridad.
+
+### Datos de demostración en una base real
+
+```bash
+npm --prefix web run db:seed
+```
+
+Con persistencia en memoria los datos ficticios se cargan solos al arrancar; una
+base de verdad nace vacía, y una aplicación que no enseña nada parece averiada.
+El comando es idempotente y escribe **con los mismos métodos que usa la
+aplicación** —nada de `INSERT` a mano—, de modo que si un repositorio se rompe,
+esto se rompe también en lugar de disimularlo.
+
+De hecho ya encontró un fallo: el archivo de actas referenciaba reuniones que no
+existían. En memoria nadie lo notaba, porque no hay integridad referencial;
+contra PostgreSQL la clave foránea lo rechazó.
 
 Dos cosas que **no** se usan de Supabase, y conviene saber por qué:
 
@@ -515,15 +561,17 @@ Seis suites, ninguna necesita desplegar nada:
 | `verify:seal` | Que alterar cualquier cosa cambia la huella |
 | `verify:tsa` | Petición RFC 3161 byte a byte; con `-- --red`, contra la autoridad |
 | `verify:marks` | Que las marcas de la docente caen en la intervención correcta |
+| `verify:supabase` | Configuración, esquema, escritura y concurrencia en la base alojada |
 | `verify:chain` | La cadena completa sobre una grabación real (necesita audio y claves) |
 
 ## Pendiente
 
-- **La base de datos nunca se ha ejecutado contra un PostgreSQL alojado.** El
-  adaptador está verificado contra PGlite, pero eso no cubre latencia, límites
-  de conexión ni TLS del proveedor.
 - **Autoridad de sellado acreditada.** FreeTSA funciona y verifica, pero no
   tiene valor legal en Ecuador.
+- **Los datos del estudiante y del representante siguen saliendo del expediente
+  de demostración** cuando coinciden con la reunión abierta. Vienen de Runachay,
+  que no está conectado; si no coinciden, la ficha lo dice en lugar de enseñar
+  los de otra familia.
 - **Gmail sólo se confirma enviando.** `gmail.send` no da acceso de lectura a
   nada —esa es su gracia—, así que no hay comprobación inocua posible.
 - Almacén de usuarios: hoy es una contraseña compartida.

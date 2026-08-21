@@ -18,7 +18,7 @@
  * pegues tú en .env.local, que está fuera de git.
  */
 
-import { readFile } from 'node:fs/promises';
+import { cargarEnv } from './env.mts';
 
 /**
  * Los tres permisos, y ni uno más.
@@ -41,11 +41,7 @@ const SCOPES = [
 const REDIRECT = 'http://localhost:3000/oauth2callback';
 
 try {
-  const env = await readFile(new URL('../.env.local', import.meta.url), 'utf8');
-  for (const l of env.split('\n')) {
-    const m = l.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
-  }
+  await cargarEnv(new URL('../.env.local', import.meta.url));
 } catch {
   /* sin .env.local */
 }

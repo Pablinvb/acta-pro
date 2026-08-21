@@ -1,20 +1,23 @@
 import { notFound } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { PageHead } from '@/components/ui';
-import { findMeeting, minutes } from '@/lib/mock/data';
 import { requireSession } from '@/lib/session';
 import { FirmasClient } from './FirmasClient';
+import { actaGenerator, meetings } from '@/services';
 
 export const metadata = { title: 'Firmas · ACTA PRO' };
 
 export default async function FirmasPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await requireSession();
   const { id } = await params;
-  const meeting = findMeeting(decodeURIComponent(id));
+  const meeting = await meetings.findOrNull(decodeURIComponent(id));
   if (!meeting) notFound();
 
+  // El acta que se va a firmar, tal y como quedó guardada. Antes se enseñaba
+  // una fija: se firmaba una cosa y se guardaba otra.
+  const acta = await actaGenerator.find(meeting.meeting_id);
   const section = (title: string) =>
-    minutes.sections.find((s) => s.title === title)?.items ?? [];
+    acta?.sections.find((s) => s.title === title)?.items ?? [];
 
   return (
     <AppShell
