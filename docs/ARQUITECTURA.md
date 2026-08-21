@@ -211,19 +211,31 @@ separado.
 | Interfaz (6 pantallas, iPad) | Funcionando |
 | Servicios | Funcionando en modo demostración |
 | Persistencia en memoria | Funcionando |
-| Persistencia en PostgreSQL | Funcionando · 33 comprobaciones contra Postgres real |
-| Google Calendar / Drive / Gmail | Implementado, sin verificar contra las APIs reales |
-| OpenAI (transcripción y análisis) | Implementado, sin verificar contra la API real |
-| Runachay | Contrato implementado; esquema de respuesta aún desconocido |
-| Separación de voces (Deepgram) | Implementado, sin verificar contra la API real |
+| Persistencia en PostgreSQL | 41 comprobaciones contra Postgres real; sin probar contra una base alojada |
+| Google Calendar / Drive | Verificado con credenciales reales |
+| Gmail | Permiso concedido; sólo se confirma al enviar un acta |
+| Transcripción (Whisper) | Verificado con una grabación real |
+| Separación de voces (pyannote) | Verificado: 40 turnos, 2 voces, 0,92 de confianza |
+| Alineación quién dijo qué | Funcionando · 20 comprobaciones |
 | Identificación de quién es cada voz | Funcionando: la docente decide una vez por voz |
+| Acta con el formato del centro | Funcionando · 43 comprobaciones |
+| Historial del estudiante | Funcionando: antecedentes heredados con su procedencia |
+| Sello de integridad (SHA-256) | Funcionando · 18 comprobaciones |
+| Sello de tiempo (RFC 3161) | Verificado de punta a punta con OpenSSL |
+| OpenAI (análisis y revisión) | Implementado, sin verificar contra la API real |
+| Runachay | Contrato implementado; esquema de respuesta aún desconocido |
 | Repositorio de actas con búsqueda | Funcionando |
 | Autenticación | Contraseña compartida provisional; falta almacén de usuarios |
 
 ## Hoja de ruta
 
-- **Ahora**: verificar las integraciones externas contra sus APIs reales.
-- **Después**: almacén de usuarios e identidad institucional.
-- **Fase 3**: diarización automática de hablantes.
-- **Fase 4**: firma digital avanzada con validez legal.
+- **Ahora**: base de datos alojada, para que lo firmado sobreviva a un reinicio.
+- **Después**: autoridad de sellado acreditada en Ecuador, y almacén de usuarios
+  con identidad institucional.
 - **Fase 5**: panel administrativo y repositorio institucional.
+
+Dos fases previstas quedaron cubiertas antes de tiempo: la diarización
+automática (Fase 3) funciona con pyannote más el motor de alineación, y el
+sellado de tiempo RFC 3161 (parte de la Fase 4) está verificado con OpenSSL. Lo
+que falta de la Fase 4 no es técnico sino administrativo: contratar una entidad
+de certificación acreditada.

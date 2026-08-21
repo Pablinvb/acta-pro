@@ -49,11 +49,14 @@ fallos del original que se corrigieron al portarlo están en
 | `speaker` | Confirmación de hablantes |
 | `meeting-ai` | Análisis de la transcripción |
 | `language-review` | Clasificación GREEN / YELLOW / RED |
+| `history` | Qué quedó de las reuniones anteriores del estudiante |
 | `acta-generator` | Las 13 secciones del acta |
 | `approval` | Decisión de la docente |
 | `signature` | Firmas de ambas partes |
+| `seal` | Huella SHA-256 del acta firmada |
+| `timestamp` | Sellado RFC 3161 con autoridad externa |
 | `document` | Documento final en HTML |
-| `pdf` | Acta en PDF, para archivar, adjuntar e imprimir |
+| `pdf` | Acta en el formato del centro, para archivar, adjuntar e imprimir |
 | `storage` | Archivo en Drive |
 | `email` | Envío y recordatorios |
 | `audit` | Registro de eventos |
@@ -74,6 +77,7 @@ página HTML.
 | `GET · POST /api/reuniones/[id]/revision` | Hallazgos y decisión de la docente |
 | `GET · POST /api/reuniones/[id]/firmas` | Firmas y toda la cadena posterior |
 | `GET /api/reuniones/[id]/acta.pdf` | Acta en PDF · `?descargar` fuerza la descarga |
+| `GET /api/reuniones/[id]/sello.tsr` | Token de sellado RFC 3161, para verificarlo aparte |
 | `GET /api/reuniones/[id]/auditoria` | Traza de la reunión |
 | `GET /api/actas` | Repositorio · `q`, `estudiante`, `desde`, `hasta` |
 
@@ -138,33 +142,57 @@ reunión. Terminar con fragmentos sin confirmar exige una segunda pulsación.
 
 ## Transcripción y hablantes
 
-El proveedor se elige con `TRANSCRIPTION_PROVIDER` y se cambia escribiendo un
-adaptador en `services/transcription/`. Nada más del sistema se entera.
+Dos servicios independientes que responden a preguntas distintas, y un motor que
+las cruza:
 
-| Proveedor | Separa voces |
-|---|---|
-| `deepgram` (por defecto) | Sí |
-| `openai` | No |
+| | Pregunta | Servicio |
+|---|---|---|
+| Transcripción | qué se dijo y **cuándo**, palabra a palabra | Whisper (OpenAI) |
+| Separación de voces | quién habló y **cuándo** | pyannoteAI |
+| Alineación | quién dijo qué | propio, `services/transcription/alignment.ts` |
 
-### Comprobar Deepgram con una grabación real
+Se llaman **en paralelo**, porque son independientes: encadenarlas duplicaría la
+espera sin ganar nada. Whisper acierta «Runachay» donde otros escriben
+«Sorronachai»; pyannote sabe que hablaron dos personas y dónde cambia el turno.
+
+Sin `PYANNOTE_API_KEY` la aplicación sigue funcionando: se transcribe igual y la
+docente atribuye las intervenciones a mano al cerrar la reunión.
+
+### Por qué hace falta alinear palabra a palabra
+
+Con una grabación real de dos minutos, la separación por frases fundía turnos:
+
+> «¿Ha visto algo que le ha llamado la atención? Sí, pasa que Sofía no está»
+
+quedaba como **una** intervención de **una** voz, siendo dos personas. pyannote
+sitúa el corte en 21,82 s, y como Whisper marca el tiempo de cada palabra, la
+alineación parte la frase donde de verdad cambia el hablante.
+
+Tres decisiones del motor, todas por evidencia medida:
+
+- **La confianza es el margen sobre la segunda voz, no el solape con la
+  primera.** Una frase mezclada daba 0,625 con el solape —por encima del umbral
+  de 0,6, o sea, se colaba— y 0,25 con el margen.
+- **Las palabras huérfanas se adoptan.** Las que caen en un silencio entre
+  turnos quedaban sin hablante y partían una frase en tres. Con adopción por
+  cercanía dentro de 2 s: 17 → 12 intervenciones.
+- **La pasada final es sobre la grabación entera.** Los fragmentos de 30 s se
+  diarizan por separado, así que la «Voz A» del minuto 1 no es la misma persona
+  que la del minuto 2. Solo transcribiendo todo de una vez salen etiquetas
+  coherentes.
+
+Resultado con esa grabación: Whisper 9,9 s, 40 turnos, 2 voces, 13
+intervenciones, **0,92 de confianza media**, 1 marcada para revisar.
 
 ```bash
-npm --prefix web run verify:deepgram -- ruta/al/audio.m4a
+npm --prefix web run verify:chain -- ruta/al/audio.m4a 2
 ```
 
-Manda el archivo a Deepgram e imprime qué devolvió: cuántas intervenciones,
-cuántas voces separó, la confianza de cada una y —lo más útil— las muestras que
-vería la docente para poner los nombres.
-
-Existe porque la única pregunta que no se puede responder leyendo código es si
-la separación funciona con **español ecuatoriano, varias personas y ruido de
-aula**, y hacer una reunión entera en la aplicación para averiguarlo es un ciclo
-demasiado lento. Sirve cualquier nota de voz del iPad; lo útil es que hablen al
-menos dos personas y que alguna interrumpa a otra.
-
-> El vocabulario de nombres propios usa `keywords` en nova-2 y `keyterm` en
-> nova-3. Pasar el que no toca **no da error**: Deepgram lo ignora en silencio y
-> los nombres siguen saliendo mal. El proveedor elige según el modelo.
+Ejecuta la cadena completa sobre un audio real e imprime la transcripción
+atribuida. Existe porque la única pregunta que no se puede responder leyendo
+código es si funciona con **español ecuatoriano, varias personas y ruido de
+aula**. Sirve cualquier nota de voz del iPad; lo útil es que hablen al menos dos
+personas y que alguna interrumpa a otra.
 
 ### Por qué dos servicios y no `gpt-4o-transcribe-diarize`
 
@@ -188,9 +216,16 @@ de voces correcto. Merece la pena revisarlo cuando el modelo madure.
 
 Conviene tener clara una distinción que la publicidad de los proveedores mezcla:
 
-> **Diarización ≠ identificación.** Deepgram sabe que hablaron tres personas
+> **Diarización ≠ identificación.** pyannote sabe que hablaron tres personas
 > distintas y devuelve «A», «B», «C». **No sabe que «B» es María López**, porque
 > no la ha oído nunca. Eso no lo hace ningún proveedor.
+
+Y por eso lo que devuelve **no es dato biométrico**: son etiquetas anónimas
+válidas solo dentro de una grabación, que no identifican a nadie ni permiten
+reconocer a esa persona en otra reunión. Se descartó a propósito la idea de
+guardar huellas de voz para identificar automáticamente: serían datos
+biométricos de menores y de sus familias, con la clasificación que eso implica
+en la LOPDP, a cambio de ahorrar dos toques de pantalla.
 
 De ahí que la docente asigne los nombres **una vez por voz**, no frase por
 frase. Al terminar la grabación, la sala cambia de tarea y muestra la pantalla
@@ -249,15 +284,56 @@ modelo extrae mucho mejor los acuerdos de un texto limpio.
 El servicio tiene prohibido cambiar el significado, suavizar lo que alguien
 expresó o corregir el registro de nadie. Solo quita ruido.
 
+## Historial del estudiante
+
+Una reunión con una familia casi nunca es la primera, pero cada una empezaba de
+cero. La ficha previa abre ahora con lo que quedó de la vez anterior, y esos
+acuerdos entran en los **antecedentes** del acta nueva citando la fecha y el
+código del acta firmada de la que salen: un antecedente sin procedencia es una
+afirmación sin respaldo.
+
+Se lee del acta guardada y no del análisis, porque el acta es lo que la docente
+aprobó y las dos partes firmaron.
+
+> **No dice si algo se cumplió.** Nadie registra el cumplimiento en ninguna
+> parte. Sabe qué se acordó, cuándo, y si llegó la fecha de revisión sin que
+> hubiera otra reunión. Presentar «incumplido» a partir de eso sería inventar un
+> hecho contra una familia, que es justo de lo que este producto protege. La
+> pantalla lo dice con todas las letras.
+
+Sólo se arrastra lo de la **última** reunión. Un acuerdo de marzo que ya se
+retomó en junio no está pendiente: se habló de él. Arrastrar el curso entero
+llenaría la pantalla de cosas resueltas y la docente dejaría de leerla, que es
+la forma más segura de que se le escape la que sí importaba.
+
 ## Acta en PDF
 
-El PDF es el formato que se archiva en Drive, se adjunta al correo y se
-descarga. Se genera texto real con PDFKit, no una captura: queda seleccionable y
-buscable, que es justo lo que hace falta cuando se busca un acta dos años
-después.
+El PDF reproduce el formulario **FORMATO ACTA REUNIÓN** del centro: datos
+generales, antecedentes, desarrollo, la tabla de acuerdos y compromisos con
+responsable y fecha plazo, y el registro de asistencia con las firmas.
 
-`?descargar` fuerza la descarga; sin el parámetro se abre en el visor, que en
-iPad es lo que permite mandarlo a imprimir directamente.
+No es estética. Un acta con formato propio obligaría a la docente a copiarla a
+mano al formato bueno, y la aplicación dejaría de ahorrarle trabajo.
+
+Se genera texto real con PDFKit, no una captura: queda seleccionable y buscable,
+que es justo lo que hace falta cuando se busca un acta dos años después. La
+correspondencia entre las 13 secciones internas y los apartados del formulario
+vive aislada en `services/acta-format.ts`, para que el día que el centro cambie
+su formulario haya un solo sitio donde mirar.
+
+### La columna RESPONSABLE
+
+El análisis devuelve los responsables de la reunión entera, no uno por acuerdo,
+así que hay que deducirlo. Tres reglas, en este orden: el nombre citado dentro
+del acuerdo; el papel con el que **empieza** el acuerdo («la docente
+registrará…»); o, si sólo hay un responsable en toda la reunión, ese.
+
+Si ninguna se cumple, **la casilla queda vacía a propósito**. Probando contra el
+acta real, buscar el papel en cualquier posición adjudicaba «Reporte de avance
+el primer viernes de cada mes al correo de la representante» a la madre, cuando
+quien envía el reporte es la docente: ahí la representante es la destinataria.
+Una casilla vacía se rellena a mano; una atribución falsa firmada por las dos
+partes no se deshace.
 
 > PDFKit lee sus métricas de fuente del disco en tiempo de ejecución, así que
 > está declarado en `serverExternalPackages`. Sin eso falla con `ENOENT` al
@@ -273,18 +349,122 @@ irregulares de un dedo produce un garabato que no se parece a la firma de nadie.
 Antes de firmar se muestran los acuerdos y compromisos. Pedir una firma sobre un
 documento que la persona no puede leer sería inaceptable.
 
+> La tinta del pad es **negro fijo**, no el color de texto del tema. Cuando se
+> derivaba del tema, bajo el tema oscuro la firma se dibujaba en blanco: se veía
+> perfectamente en pantalla y salía invisible en el PDF. Un fallo silencioso en
+> lo único que hace que el documento pruebe algo.
+
+## Los dos sellos
+
+Al firmar se producen dos cosas distintas, y la diferencia importa.
+
+**Sello de integridad (propio).** Una huella SHA-256 sobre una serialización
+determinista del acta, las dos firmas y el instante. Va impresa en el PDF en
+grupos de ocho —sesenta y cuatro caracteres seguidos no los compara nadie— y
+demuestra que el acta archivada es palabra por palabra la que se firmó.
+
+Guardar la hora en una columna no demostraría nada: una columna se edita. La
+huella depende del contenido, así que cambiar una línea del acta, mover la fecha
+de firma o sustituir una imagen produce una huella distinta.
+
+**Sello de tiempo (RFC 3161, autoridad externa).** El anterior no demuestra
+*cuándo* frente a un tercero, porque el instante lo pone el servidor del propio
+centro — y es justo eso lo que hace falta si alguien sostiene que un acta se
+redactó después de los hechos. La huella se envía a una autoridad independiente
+que devuelve un token firmado. El acta imprime quién selló, cuándo y con qué
+número de serie.
+
+```bash
+# El token se descarga aparte y se verifica SIN pasar por ACTA PRO
+curl -o acta.tsr .../api/reuniones/ACTA-2026-0001/sello.tsr
+openssl ts -verify -in acta.tsr -token_in -digest <huella impresa> -CAfile cadena.pem
+```
+
+Que la verificación no dependa de la herramienta que creó el sello es el valor
+entero: si sólo se pudiera comprobar con ACTA PRO, no probaría nada ante quien
+desconfía de ACTA PRO.
+
+El ASN.1 DER de la petición y la lectura de la respuesta están escritos a mano
+en `services/rfc3161.ts` —es un formato pequeño y bien especificado—. Lo que
+**no** se hace a mano es validar la firma del token contra la cadena de
+certificados: eso es criptografía de verdad y escribirla uno mismo es como se
+cometen los errores.
+
+Tres comprobaciones antes de dar un sello por bueno, porque un token legítimo
+**de otro documento** verificaría igual de bien y archivarlo daría un respaldo
+aparente que se desmorona justo cuando hace falta:
+
+- que la huella sellada sea la nuestra;
+- que el nonce devuelto sea el que enviamos, contra sellos reutilizados;
+- que la fecha no se aleje más de un día de la del servidor.
+
+> **Un fallo de la autoridad nunca tumba la firma.** Si no responde, el acta se
+> firma con el sello propio y queda constancia en la auditoría. El PDF distingue
+> los dos casos por escrito, porque un docente que crea tener más respaldo del
+> que tiene está peor protegido que uno que sabe cuál es.
+
+`ACTA_PRO_TSA_URL` apunta por defecto a FreeTSA, pública y sin cuenta, para que
+funcione desde el primer día. **Para valor legal en Ecuador hay que apuntarlo a
+una entidad de certificación acreditada** —Banco Central del Ecuador, Security
+Data, ANF—. Vacío desactiva el sellado externo.
+
 ## Persistencia
 
 `ACTA_PRO_PERSISTENCE=memory` (por defecto) funciona de principio a fin y es con
-lo que se desarrolla, pero el estado muere al reiniciar.
+lo que se desarrolla, pero **el estado muere al reiniciar**. Eso incluye las
+actas firmadas y sus sellos de tiempo, así que no sirve para reuniones reales:
+el respaldo que acabamos de construir duraría hasta el siguiente despliegue.
 
-Para persistencia real:
+Para persistencia real: `ACTA_PRO_PERSISTENCE=postgres` y `DATABASE_URL` en
+`.env.local`, tras aplicar el esquema:
 
 ```bash
 psql "$DATABASE_URL" -f web/db/schema.sql
 ```
 
-y `ACTA_PRO_PERSISTENCE=postgres` con `DATABASE_URL` en `.env.local`.
+Vale cualquier PostgreSQL 14 o superior. El adaptador usa SQL estándar y `pg`:
+no depende de ninguna extensión ni de ningún proveedor.
+
+### Con Supabase
+
+Supabase es PostgreSQL, así que funciona con el mismo adaptador y sin tocar
+código. Lo único que cambia es de dónde sale `DATABASE_URL`.
+
+1. **Crea el proyecto** en https://supabase.com y elige la región más cercana
+   (`South America (São Paulo)` para Ecuador).
+2. **Aplica el esquema.** En el panel: *SQL Editor* → pega `web/db/schema.sql` →
+   *Run*. O desde tu máquina con `psql`.
+3. **Copia la cadena de conexión.** *Project Settings → Database → Connection
+   string → URI*. Usa la del **pooler en modo `transaction`** (puerto `6543`),
+   no la conexión directa: en un despliegue con funciones serverless, las
+   conexiones directas se agotan enseguida.
+4. En `.env.local`:
+
+```bash
+ACTA_PRO_PERSISTENCE=postgres
+DATABASE_URL=postgresql://postgres.<ref>:<contraseña>@aws-0-<región>.pooler.supabase.com:6543/postgres
+DATABASE_SSL=true
+DATABASE_POOL_MAX=5
+```
+
+> `DATABASE_POOL_MAX` bajo a propósito con el pooler: quien reparte las
+> conexiones es Supabase, y abrir un pool grande contra un pool ajeno sólo sirve
+> para chocar con su límite.
+
+Dos cosas que **no** se usan de Supabase, y conviene saber por qué:
+
+- **Ni el cliente `supabase-js` ni las claves `anon`.** Están pensados para que
+  el navegador hable directamente con la base, y aquí ninguna credencial pisa el
+  navegador: todo pasa por la API propia, que ya comprueba la sesión.
+- **Ni Row Level Security.** Sirve cuando el cliente se conecta por su cuenta;
+  con acceso sólo desde el servidor, las reglas viven en los servicios, que es
+  donde se pueden leer y verificar. Si algún día el navegador llegara a
+  conectarse directamente, RLS pasaría de recomendable a obligatorio.
+
+Supabase también ofrece almacenamiento compatible con S3, así que
+`ACTA_PRO_STORAGE=s3` podría apuntar ahí en lugar de a Drive. Hoy el modo por
+defecto es Drive, porque la docente puede abrir la carpeta del estudiante sin
+pasar por la aplicación.
 
 ### Verificación
 
@@ -294,12 +474,18 @@ npm --prefix web run verify:db
 
 Ejecuta `schema.sql` y el adaptador completo contra **PostgreSQL de verdad**,
 usando PGlite —Postgres compilado a WASM que corre en el propio proceso—, así
-que no hace falta ni servidor ni Docker. Son 33 comprobaciones sobre el
+que no hace falta ni servidor ni Docker. Son 41 comprobaciones sobre el
 comportamiento que importa, no sobre que compile: que volver a sincronizar una
 reunión no la duplique, que `retry_required` no borre nada, que reenviar un
 fragmento de audio no lo duplique, que una sola decisión atribuya todas las
-intervenciones de una voz, que volver a firmar sustituya en lugar de acumular, y
-que la búsqueda del repositorio ignore las tildes.
+intervenciones de una voz, que volver a firmar sustituya en lugar de acumular,
+que el instante de firma y el token de sellado vuelvan intactos, y que la
+búsqueda del repositorio ignore las tildes.
+
+> Que el instante vuelva intacto no es una comprobación de adorno. El adaptador
+> guardaba `signed_at = now()` con el reloj de la base en lugar del recibido, de
+> modo que el momento almacenado no era el usado para calcular la huella y el
+> sello impreso en el acta no habría cuadrado nunca.
 
 ### Dos decisiones grabadas en el esquema
 
@@ -317,11 +503,29 @@ recarga no las pierda. Se usa `sessionStorage` y no `localStorage` a propósito:
 contienen decisiones sobre el acta de un menor y el iPad de un aula puede pasar
 por varias manos.
 
+## Verificación
+
+Seis suites, ninguna necesita desplegar nada:
+
+| Comando | Qué comprueba |
+|---|---|
+| `verify:db` | Esquema y adaptador contra PostgreSQL real (PGlite) |
+| `verify:acta` | Historial y correspondencia con el formulario del centro |
+| `verify:alignment` | Quién dijo qué: confianza, huérfanas, umbrales |
+| `verify:seal` | Que alterar cualquier cosa cambia la huella |
+| `verify:tsa` | Petición RFC 3161 byte a byte; con `-- --red`, contra la autoridad |
+| `verify:marks` | Que las marcas de la docente caen en la intervención correcta |
+| `verify:chain` | La cadena completa sobre una grabación real (necesita audio y claves) |
+
 ## Pendiente
 
-- Adaptador de PostgreSQL.
-- **Las integraciones de Google y OpenAI están escritas pero no verificadas
-  contra las APIs reales**: hacen falta credenciales.
-- Almacén de usuarios.
+- **La base de datos nunca se ha ejecutado contra un PostgreSQL alojado.** El
+  adaptador está verificado contra PGlite, pero eso no cubre latencia, límites
+  de conexión ni TLS del proveedor.
+- **Autoridad de sellado acreditada.** FreeTSA funciona y verifica, pero no
+  tiene valor legal en Ecuador.
+- **Gmail sólo se confirma enviando.** `gmail.send` no da acceso de lectura a
+  nada —esa es su gracia—, así que no hay comprobación inocua posible.
+- Almacén de usuarios: hoy es una contraseña compartida.
 - El esquema de respuesta de Runachay sigue sin conocerse; el mapeo está aislado
   en `mapStudent` y `mapRepresentative`.
