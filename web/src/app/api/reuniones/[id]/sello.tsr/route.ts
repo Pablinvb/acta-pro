@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSession } from '@/lib/session';
-import { signatures } from '@/services';
+import { meetings, signatures } from '@/services';
 
 /**
  * Descarga del sello de tiempo RFC 3161.
@@ -30,6 +30,14 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
 
   const { id } = await context.params;
   const meetingId = decodeURIComponent(id);
+
+  // El sello de otra docente tampoco. Mismo 404 por el mismo motivo.
+  if (!(await meetings.findForTeacher(meetingId, session.teacherId))) {
+    return NextResponse.json(
+      { error: 'no_encontrado', message: 'No existe esa reunión, o no es tuya.' },
+      { status: 404 },
+    );
+  }
 
   const firmas = await signatures.listByMeeting(meetingId);
   const sello = firmas.find((s) => s.timestamp)?.timestamp;

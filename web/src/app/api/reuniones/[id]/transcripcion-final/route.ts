@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { handle } from '@/app/api/_handler';
+import { handleMeeting } from '@/app/api/_handler';
 import { meetings, speech } from '@/services';
 
 /**
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     marks = [];
   }
 
-  return handle(async () => {
+  return handleMeeting(meetingId, async () => {
     const meeting = await meetings.find(meetingId);
     const present = meeting.participants.filter((p) => p.present).map((p) => p.name);
     return speech.transcribeFullMeeting(meetingId, audio, present, marks);

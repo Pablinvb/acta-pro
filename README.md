@@ -46,11 +46,17 @@ npm --prefix web install
 npm --prefix web run dev
 ```
 
-http://localhost:3000 · usuario `T-045`, contraseña `acta-pro-demo`.
+Arranca en **modo demostración**: el ciclo completo funciona con datos
+ficticios, sin Google, sin OpenAI y sin Runachay.
 
-Sin configurar nada arranca en **modo demostración**: se puede recorrer el ciclo
-completo con datos ficticios, sin Google, sin OpenAI, sin Runachay y sin base de
-datos.
+Para entrar hace falta una cuenta. Se crea con:
+
+```bash
+npm --prefix web run usuarios -- alta T-045 "Ana Pérez" correo@colegio.edu.ec
+```
+
+La contraseña se genera y se imprime una sola vez. No hay contraseña compartida:
+cada docente entra con la suya y **sólo alcanza sus propias reuniones**.
 
 ## Estructura
 
@@ -111,6 +117,7 @@ npm --prefix web run verify:alignment   # 20 · quién dijo qué
 npm --prefix web run verify:seal        # 18 · sello de integridad
 npm --prefix web run verify:tsa -- --red# 20 · sellado RFC 3161, contra la autoridad real
 npm --prefix web run verify:marks       # 16 · marcas de la docente
+npm --prefix web run verify:auth        # 24 · contraseñas y sesión
 npm --prefix web run verify:supabase    # 12 · la base alojada, si la hay
 ```
 
@@ -127,13 +134,12 @@ Lo que falta antes de usarlo con reuniones reales:
 
 - **Autoridad de sellado acreditada.** Por defecto apunta a FreeTSA, que
   funciona pero no tiene valor legal en Ecuador. Se cambia con una variable.
-- Almacén de usuarios: hoy la autenticación usa una contraseña compartida.
 - El esquema de respuesta de Runachay sigue sin conocerse, así que el expediente
   académico del estudiante todavía sale de los datos de demostración.
 
 ## Privacidad
 
-La aplicación trata datos personales de menores.
+La aplicación trata datos personales de estudiantes y de sus familias.
 
 - Las credenciales viven solo en el servidor; ninguna variable se expone al
   navegador.
@@ -141,9 +147,12 @@ La aplicación trata datos personales de menores.
   adjunta a un correo.
 - Se pide a Google el permiso mínimo: `drive.file` en lugar de `drive`, de modo
   que la aplicación solo ve los archivos que ella misma crea.
+- **Cada docente sólo alcanza sus propias reuniones.** No es un filtro de la
+  agenda: el servidor devuelve 404 ante la reunión de otro, y 404 y no 403 para
+  no confirmar siquiera que existe.
 - **No se usan huellas de voz.** Se descartaron a propósito: son datos
-  biométricos de menores y de sus familias, y la separación de voces funciona sin
-  ellas porque devuelve etiquetas anónimas válidas solo dentro de una grabación.
+  biométricos, y la separación de voces funciona sin ellas porque devuelve
+  etiquetas anónimas válidas solo dentro de una grabación.
 - Ante un fallo de integración no se elimina ninguna reunión ni información ya
   procesada.
 - Todo evento crítico queda registrado en un log de auditoría que solo admite

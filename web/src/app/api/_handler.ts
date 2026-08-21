@@ -1,8 +1,10 @@
 import 'server-only';
 import { NextResponse } from 'next/server';
-import { ServiceError } from '@/services/errors';
+import { ServiceError, noEncontrado } from '@/services/errors';
+import { meetings } from '@/services';
 import { getSession } from '@/lib/session';
 import type { Session } from '@/lib/auth';
+import type { Meeting } from '@/lib/types';
 
 /**
  * Envoltorio común de las rutas de la API.
@@ -15,6 +17,27 @@ import type { Session } from '@/lib/auth';
  * alguien toque el `matcher`, ninguna ruta con datos de estudiantes se queda
  * abierta por descuido.
  */
+/**
+ * Como `handle`, pero además comprueba que la reunión sea de quien la pide.
+ *
+ * Existe para que el control de acceso no dependa de que quien escriba la
+ * siguiente ruta se acuerde de comprobarlo. Todas las rutas de
+ * `/api/reuniones/[id]/…` pasan por aquí.
+ *
+ * Una reunión ajena responde 404 y no 403: un 403 confirmaría que existe, que
+ * es justo lo que no queremos decirle a quien va probando identificadores.
+ */
+export async function handleMeeting<T>(
+  meetingId: string,
+  run: (session: Session, meeting: Meeting) => Promise<T>,
+): Promise<NextResponse> {
+  return handle(async (session) => {
+    const meeting = await meetings.findForTeacher(meetingId, session.teacherId);
+    if (!meeting) throw noEncontrado('No existe esa reunión, o no es tuya.');
+    return run(session, meeting);
+  });
+}
+
 export async function handle<T>(
   run: (session: Session) => Promise<T>,
 ): Promise<NextResponse> {

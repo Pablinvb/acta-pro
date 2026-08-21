@@ -30,6 +30,28 @@ export async function findOrNull(meetingId: string): Promise<Meeting | null> {
   return getRepositories().meetings.find(meetingId);
 }
 
+/**
+ * La reunión, sólo si es de esta docente.
+ *
+ * Es el control de acceso de todo el producto. Hasta ahora bastaba con estar
+ * dentro para abrir cualquier reunión escribiendo su identificador en la barra
+ * de direcciones: la agenda filtraba, pero la agenda es una pantalla, no una
+ * regla. Con familias reales eso significa que un docente lee el expediente y
+ * la transcripción de los estudiantes de otro.
+ *
+ * Devuelve `null` tanto si la reunión no existe como si no le pertenece, a
+ * propósito: distinguir ambos casos permitiría averiguar qué reuniones existen
+ * probando identificadores.
+ */
+export async function findForTeacher(
+  meetingId: string,
+  teacherId: string,
+): Promise<Meeting | null> {
+  const meeting = await getRepositories().meetings.find(meetingId);
+  if (!meeting) return null;
+  return meeting.teacher_id === teacherId ? meeting : null;
+}
+
 /** Registro preliminar. Idempotente: volver a llamar no duplica la reunión. */
 export async function register(meeting: Meeting): Promise<Meeting> {
   const saved = await getRepositories().meetings.upsert({ ...meeting, status: 'scheduled' });

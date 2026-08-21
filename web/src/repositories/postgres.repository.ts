@@ -94,6 +94,76 @@ export function createPostgresRepositories(resolve: () => Promise<Db>): Reposito
   const db = () => resolve();
 
   return {
+    teachers: {
+      async find(teacherId) {
+        // `lower()` en los dos lados: nadie recuerda si su código era t-045.
+        const { rows } = await (await db()).query<Record<string, unknown>>(
+          `SELECT teacher_id, name, email, subject, phone, position, password_hash
+             FROM teachers WHERE lower(teacher_id) = lower($1)`,
+          [teacherId.trim()],
+        );
+        const r = rows[0];
+        if (!r) return null;
+        return {
+          teacher_id: r.teacher_id as string,
+          name: r.name as string,
+          email: (r.email as string | null) ?? undefined,
+          subject: (r.subject as string | null) ?? undefined,
+          phone: (r.phone as string | null) ?? undefined,
+          position: (r.position as string | null) ?? undefined,
+          password_hash: (r.password_hash as string | null) ?? undefined,
+        };
+      },
+
+      async list() {
+        // Sin `password_hash`: no tiene por qué salir de aquí.
+        const { rows } = await (await db()).query<Record<string, unknown>>(
+          `SELECT teacher_id, name, email, subject, phone, position
+             FROM teachers ORDER BY name`,
+        );
+        return rows.map((r) => ({
+          teacher_id: r.teacher_id as string,
+          name: r.name as string,
+          email: (r.email as string | null) ?? undefined,
+          subject: (r.subject as string | null) ?? undefined,
+          phone: (r.phone as string | null) ?? undefined,
+          position: (r.position as string | null) ?? undefined,
+        }));
+      },
+
+      async upsert(teacher) {
+        // COALESCE para que actualizar los datos de la persona no borre lo que
+        // no venga en esta llamada, empezando por su contraseña.
+        await (await db()).query(
+          `INSERT INTO teachers (teacher_id, name, email, subject, phone, position)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           ON CONFLICT (teacher_id) DO UPDATE SET
+             name     = EXCLUDED.name,
+             email    = COALESCE(EXCLUDED.email, teachers.email),
+             subject  = COALESCE(EXCLUDED.subject, teachers.subject),
+             phone    = COALESCE(EXCLUDED.phone, teachers.phone),
+             position = COALESCE(EXCLUDED.position, teachers.position)`,
+          [
+            teacher.teacher_id,
+            teacher.name,
+            teacher.email ?? null,
+            teacher.subject ?? null,
+            teacher.phone ?? null,
+            teacher.position ?? null,
+          ],
+        );
+        return teacher;
+      },
+
+      async setPasswordHash(teacherId, passwordHash) {
+        await (await db()).query(
+          `UPDATE teachers SET password_hash = $2, password_updated_at = now()
+            WHERE lower(teacher_id) = lower($1)`,
+          [teacherId.trim(), passwordHash],
+        );
+      },
+    },
+
     meetings: {
       async list(filter) {
         const conditions: string[] = [];
@@ -521,12 +591,19 @@ export function createPostgresRepositories(resolve: () => Promise<Db>): Reposito
         return rows.map(toDocument);
       },
 
-      async search({ query, studentId, from, to }) {
+      async search({ query, studentId, teacherId, from, to }) {
         const conditions: string[] = [];
         const params: unknown[] = [];
         if (studentId) {
           params.push(studentId);
           conditions.push(`student_id = $${params.length}`);
+        }
+        if (teacherId) {
+          // El acta no guarda la docente; la reunión de la que salió, sí.
+          params.push(teacherId);
+          conditions.push(
+            `meeting_id IN (SELECT meeting_id FROM meetings WHERE teacher_id = $${params.length})`,
+          );
         }
         if (from) {
           params.push(from);
@@ -588,8 +665,19 @@ export function createPostgresRepositories(resolve: () => Promise<Db>): Reposito
     followUps: {
       async save(followUp) {
         await (await db()).query(
+          /*
+           * Una reunión tiene un seguimiento, no una lista que crece cada vez
+           * que se guarda. Antes esto era un INSERT a secas, de modo que
+           * reprocesar una reunión duplicaba la fila —y con ella el evento de
+           * calendario que se crea a partir de ella—. El adaptador en memoria
+           * ya sustituía; los dos hacen ahora lo mismo.
+           */
           `INSERT INTO follow_ups (meeting_id, due_date, description, calendar_event_id)
-           VALUES ($1, $2::date, $3, $4)`,
+           VALUES ($1, $2::date, $3, $4)
+           ON CONFLICT (meeting_id) DO UPDATE SET
+             due_date          = EXCLUDED.due_date,
+             description       = EXCLUDED.description,
+             calendar_event_id = COALESCE(EXCLUDED.calendar_event_id, follow_ups.calendar_event_id)`,
           [followUp.meeting_id, followUp.date, followUp.description, followUp.calendar_event_id ?? null],
         );
       },

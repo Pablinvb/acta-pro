@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSession } from '@/lib/session';
-import { pdf } from '@/services';
+import { meetings, pdf } from '@/services';
 import { ServiceError } from '@/services/errors';
 
 /**
@@ -21,9 +21,22 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
   }
 
   const { id } = await context.params;
+  const meetingId = decodeURIComponent(id);
+
+  /*
+   * El acta de otra docente no se descarga. Se responde 404 y no 403: un 403
+   * confirmaría que esa reunión existe, que es justo lo que no hay que decirle
+   * a quien va probando identificadores en la barra de direcciones.
+   */
+  if (!(await meetings.findForTeacher(meetingId, session.teacherId))) {
+    return NextResponse.json(
+      { error: 'no_encontrado', message: 'No existe esa reunión, o no es tuya.' },
+      { status: 404 },
+    );
+  }
 
   try {
-    const { pdf: buffer, documentCode } = await pdf.build(decodeURIComponent(id));
+    const { pdf: buffer, documentCode } = await pdf.build(meetingId);
 
     // `inline` abre el visor del navegador y deja guardar desde ahí; en iPad es
     // lo que permite mandarlo a imprimir sin descargarlo primero.

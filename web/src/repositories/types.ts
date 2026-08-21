@@ -9,6 +9,7 @@ import type {
   MeetingMinutes,
   MeetingStatus,
   Signature,
+  Teacher,
   TranscriptSegment,
 } from '@/lib/types';
 
@@ -27,6 +28,26 @@ import type {
  *  2. Nada se borra ante un fallo. No existe ningún método `delete` de reunión;
  *     lo más destructivo que se puede hacer es marcar `retry_required`.
  */
+
+/** Docente con su credencial. La huella nunca sale de la capa de servicios. */
+export interface TeacherAccount extends Teacher {
+  password_hash?: string;
+}
+
+/**
+ * Cuentas del claustro.
+ *
+ * Sustituye a la contraseña compartida en variable de entorno. Deja de ser un
+ * detalle de comodidad en cuanto entran datos reales: el identificador de la
+ * sesión es lo que decide qué reuniones se pueden abrir.
+ */
+export interface TeacherRepository {
+  find(teacherId: string): Promise<TeacherAccount | null>;
+  list(): Promise<Teacher[]>;
+  upsert(teacher: Teacher): Promise<Teacher>;
+  /** Guarda la huella ya calculada. Aquí nunca llega una contraseña en claro. */
+  setPasswordHash(teacherId: string, passwordHash: string): Promise<void>;
+}
 
 export interface MeetingRepository {
   /**
@@ -101,6 +122,14 @@ export interface DocumentSearch {
   /** Texto libre: estudiante, tipo de reunión o código del acta. */
   query?: string;
   studentId?: string;
+  /**
+   * Sólo las actas de las reuniones de esta docente.
+   *
+   * El repositorio busca por nombre de estudiante, así que sin este filtro
+   * cualquiera encontraría las actas de las familias de otro docente escribiendo
+   * un apellido.
+   */
+  teacherId?: string;
   /** ISO `YYYY-MM-DD`. */
   from?: string;
   to?: string;
@@ -128,6 +157,7 @@ export interface AuditRepository {
 }
 
 export interface Repositories {
+  teachers: TeacherRepository;
   meetings: MeetingRepository;
   transcripts: TranscriptRepository;
   minutes: MinutesRepository;

@@ -12,7 +12,7 @@ export const metadata = { title: 'Sala de reunión · ACTA PRO' };
 export default async function SalaPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await requireSession();
   const { id } = await params;
-  const meeting = await meetings.findOrNull(decodeURIComponent(id));
+  const meeting = await meetings.findForTeacher(decodeURIComponent(id), session.teacherId);
   if (!meeting) notFound();
 
   return (

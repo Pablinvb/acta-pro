@@ -12,7 +12,7 @@ import type {
   Signature,
   TranscriptSegment,
 } from '@/lib/types';
-import type { Repositories } from './types';
+import type { Repositories, TeacherAccount } from './types';
 
 /**
  * Adaptador en memoria.
@@ -28,6 +28,7 @@ import type { Repositories } from './types';
  */
 
 interface Store {
+  teachers: Map<string, TeacherAccount>;
   meetings: Map<string, Meeting>;
   reminded: Set<string>;
   transcripts: Map<string, TranscriptSegment[]>;
@@ -49,6 +50,7 @@ const globalStore = globalThis as unknown as { __actaProStore?: Store };
 
 function createStore(): Store {
   return {
+    teachers: new Map(seed.teachers.map((t) => [t.teacher_id, structuredClone(t)])),
     meetings: new Map(
       [...seed.meetings, ...seed.previousMeetings].map((m) => [
         m.meeting_id,
@@ -89,6 +91,34 @@ function minutesUntil(meeting: Meeting, now: Date): number {
 }
 
 export const memoryRepositories: Repositories = {
+  teachers: {
+    async find(teacherId) {
+      // Sin distinguir mayúsculas: nadie recuerda si su código era t-045 o T-045.
+      const clave = teacherId.trim().toLowerCase();
+      return (
+        [...store.teachers.values()].find((t) => t.teacher_id.toLowerCase() === clave) ?? null
+      );
+    },
+    async list() {
+      // Sin la huella: no tiene por qué salir de aquí.
+      return [...store.teachers.values()].map(({ password_hash, ...t }) => {
+        void password_hash;
+        return t;
+      });
+    },
+    async upsert(teacher) {
+      const previo = store.teachers.get(teacher.teacher_id);
+      // La contraseña no se pierde al actualizar los datos de la persona.
+      const fusionado = { ...previo, ...teacher };
+      store.teachers.set(teacher.teacher_id, fusionado);
+      return fusionado;
+    },
+    async setPasswordHash(teacherId, passwordHash) {
+      const t = store.teachers.get(teacherId);
+      if (t) t.password_hash = passwordHash;
+    },
+  },
+
   meetings: {
     async list(filter) {
       return [...store.meetings.values()]
@@ -215,13 +245,23 @@ export const memoryRepositories: Repositories = {
         .filter((d) => d.student_id === studentId)
         .sort((a, b) => b.date.localeCompare(a.date));
     },
-    async search({ query, studentId, from, to }) {
+    async search({ query, studentId, teacherId, from, to }) {
       // Se normaliza sin tildes: buscar «perez» debe encontrar «Pérez».
       const normalize = (s: string) =>
         s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
       const needle = query ? normalize(query) : '';
 
+      // El acta no guarda la docente; la reunión de la que salió, sí.
+      const propias = teacherId
+        ? new Set(
+            [...store.meetings.values()]
+              .filter((m) => m.teacher_id === teacherId)
+              .map((m) => m.meeting_id),
+          )
+        : null;
+
       return store.documents
+        .filter((d) => !propias || propias.has(d.meeting_id))
         .filter((d) => !studentId || d.student_id === studentId)
         .filter((d) => !from || d.date >= from)
         .filter((d) => !to || d.date <= to)

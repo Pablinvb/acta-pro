@@ -11,7 +11,7 @@ export const metadata = { title: 'Revisión del acta · ACTA PRO' };
 export default async function RevisionPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await requireSession();
   const { id } = await params;
-  const meeting = await meetings.findOrNull(decodeURIComponent(id));
+  const meeting = await meetings.findForTeacher(decodeURIComponent(id), session.teacherId);
   if (!meeting) notFound();
 
   const acta = await actaGenerator.find(meeting.meeting_id);

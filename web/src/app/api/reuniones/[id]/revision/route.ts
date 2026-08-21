@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { handle } from '@/app/api/_handler';
+import { handleMeeting } from '@/app/api/_handler';
 import { approval, languageReview } from '@/services';
 import type { TeacherDecision } from '@/services/approval.service';
 
@@ -12,15 +12,16 @@ import type { TeacherDecision } from '@/services/approval.service';
  */
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
+  const meetingId = decodeURIComponent(id);
   const body = (await request.json()) as {
     decision: TeacherDecision;
     appliedFragments?: string[];
     keptFragments?: string[];
   };
 
-  return handle((session) =>
+  return handleMeeting(meetingId, (session) =>
     approval.submit({
-      meetingId: decodeURIComponent(id),
+      meetingId: meetingId,
       decision: body.decision,
       teacherId: session.teacherId,
       appliedFragments: body.appliedFragments,
@@ -32,5 +33,6 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 /** Hallazgos de la revisión de lenguaje (WF 09). */
 export async function GET(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  return handle(() => languageReview.findByMeeting(decodeURIComponent(id)));
+  const meetingId = decodeURIComponent(id);
+  return handleMeeting(meetingId, () => languageReview.findByMeeting(meetingId));
 }

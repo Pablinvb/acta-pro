@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { handle } from '@/app/api/_handler';
+import { handleMeeting } from '@/app/api/_handler';
 import { lifecycle, signatures } from '@/services';
 
 /**
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     document_version?: number;
   };
 
-  return handle(async () => {
+  return handleMeeting(meetingId, async () => {
     const saved = await signatures.submit({
       meetingId,
       teacherSignature: body.teacher_signature,
@@ -34,5 +34,6 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
 export async function GET(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  return handle(() => signatures.listByMeeting(decodeURIComponent(id)));
+  const meetingId = decodeURIComponent(id);
+  return handleMeeting(meetingId, () => signatures.listByMeeting(meetingId));
 }

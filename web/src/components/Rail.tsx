@@ -154,20 +154,31 @@ export function Rail({
         Ciclo de la reunión
       </p>
 
-      <ul className="stagger flex list-none flex-col gap-0.5 px-2.5 max-lg:flex-row max-lg:overflow-x-auto max-lg:pb-2.5">
-        {steps.map((step, i) => (
-          <NavItem
-            key={step.n}
-            href={step.href}
-            current={i === activeIndex}
-            done={activeIndex > -1 && i < activeIndex}
-            label={step.label}
-            hint={`${step.n} · ${step.hint}`}
-            Icon={step.Icon}
-            minWidth="max-lg:min-w-[176px]"
-          />
-        ))}
-      </ul>
+      {/*
+        Sin reunión seleccionada los pasos no llevan a ninguna parte: los
+        enlaces salían como `/reuniones//ficha`. Le pasa a cualquier docente
+        recién dada de alta, que es justo la primera vez que alguien ve esto.
+      */}
+      {meetingId ? (
+        <ul className="stagger flex list-none flex-col gap-0.5 px-2.5 max-lg:flex-row max-lg:overflow-x-auto max-lg:pb-2.5">
+          {steps.map((step, i) => (
+            <NavItem
+              key={step.n}
+              href={step.href}
+              current={i === activeIndex}
+              done={activeIndex > -1 && i < activeIndex}
+              label={step.label}
+              hint={`${step.n} · ${step.hint}`}
+              Icon={step.Icon}
+              minWidth="max-lg:min-w-[176px]"
+            />
+          ))}
+        </ul>
+      ) : (
+        <p className="px-4.5 py-2 text-[12px] leading-relaxed text-ink-3 max-lg:hidden">
+          Elige una reunión en el panel para recorrer su ciclo.
+        </p>
+      )}
 
       {/* ── Lo que no pertenece a ninguna reunión ── */}
       <p className="mt-4 px-4.5 py-1.5 text-[10px] font-semibold tracking-[0.11em] text-ink-3 uppercase max-lg:hidden">

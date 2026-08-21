@@ -12,7 +12,7 @@ export const metadata = { title: 'Envío y archivo · ACTA PRO' };
 export default async function EnvioPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await requireSession();
   const { id } = await params;
-  const meeting = await meetings.findOrNull(decodeURIComponent(id));
+  const meeting = await meetings.findForTeacher(decodeURIComponent(id), session.teacherId);
   if (!meeting) notFound();
 
   // Sin correo verificado el acta no se puede enviar: se dice antes de intentarlo.

@@ -26,6 +26,12 @@ CREATE TABLE teachers (
   -- papel, en lugar de rellenarse con algo inventado.
   phone        TEXT,
   position     TEXT,
+  -- Huella PBKDF2-SHA256 de la contraseña, con su sal y sus iteraciones dentro.
+  -- Nunca la contraseña. Nula mientras la cuenta no tenga clave asignada: en
+  -- ese estado no se puede entrar, que es lo correcto para una cuenta a medio
+  -- crear.
+  password_hash        TEXT,
+  password_updated_at  TIMESTAMPTZ,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -202,7 +208,10 @@ CREATE INDEX documents_student_idx ON documents (student_id, document_date DESC)
 
 CREATE TABLE follow_ups (
   id                BIGSERIAL PRIMARY KEY,
-  meeting_id        TEXT NOT NULL REFERENCES meetings(meeting_id),
+  -- UNIQUE: una reunión acuerda un seguimiento, no una lista que crece cada vez
+  -- que se reprocesa. Sin esto, volver a cerrar una reunión duplicaba la fila y
+  -- con ella el evento de calendario.
+  meeting_id        TEXT NOT NULL UNIQUE REFERENCES meetings(meeting_id),
   due_date          DATE NOT NULL,
   description       TEXT NOT NULL,
   calendar_event_id TEXT,

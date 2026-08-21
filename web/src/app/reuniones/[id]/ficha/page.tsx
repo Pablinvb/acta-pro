@@ -22,7 +22,7 @@ function Stat({ value, label }: { value: string; label: string }) {
 export default async function FichaPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await requireSession();
   const { id } = await params;
-  const meeting = await meetings.findOrNull(decodeURIComponent(id));
+  const meeting = await meetings.findForTeacher(decodeURIComponent(id), session.teacherId);
   if (!meeting) notFound();
 
   const verified = meeting.data_status !== 'manual_verification_required';
@@ -44,7 +44,10 @@ export default async function FichaPage({ params }: { params: Promise<{ id: stri
    * Mateo. En un centro educativo eso no es un fallo de maquetación: es enseñar
    * el historial de una familia a otra.
    */
-  const actasDelEstudiante = await documents.search({ studentId: meeting.student_id });
+  const actasDelEstudiante = await documents.search({
+    studentId: meeting.student_id,
+    teacherId: session.teacherId,
+  });
 
   /*
    * Los datos académicos vienen de Runachay, que todavía no está conectado. Se

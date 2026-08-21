@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { handle } from '@/app/api/_handler';
+import { handleMeeting } from '@/app/api/_handler';
 import { speech } from '@/services';
 
 /**
@@ -10,6 +10,7 @@ import { speech } from '@/services';
  */
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
+  const meetingId = decodeURIComponent(id);
   const form = await request.formData();
   const audio = form.get('data');
 
@@ -27,9 +28,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     expectedParticipants = [];
   }
 
-  return handle(() =>
+  return handleMeeting(meetingId, () =>
     speech.transcribeChunk({
-      meetingId: decodeURIComponent(id),
+      meetingId: meetingId,
       audio,
       timestamp: String(form.get('timestamp') ?? new Date().toISOString()),
       expectedParticipants,

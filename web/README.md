@@ -10,11 +10,12 @@ npm --prefix web install
 npm --prefix web run dev
 ```
 
-http://localhost:3000 · usuario `T-045`, contraseña `acta-pro-demo`.
+Arranca en **modo demostración**: el ciclo completo funciona con los datos de
+`docs/DATOS_DE_PRUEBA.md`, sin servicios externos. Para conectar lo real, copia
+`.env.example` a `.env.local`.
 
-Sin configuración arranca en **modo demostración**: el ciclo completo funciona
-con los datos de `docs/DATOS_DE_PRUEBA.md`, sin servicios externos ni base de
-datos. Para conectar lo real, copia `.env.example` a `.env.local`.
+Para entrar hace falta una cuenta —no hay contraseña compartida—; se crea con
+`npm --prefix web run usuarios`, más abajo.
 
 ## Estructura
 
@@ -118,14 +119,53 @@ Sesión en cookie `httpOnly` firmada con HMAC-SHA256 mediante Web Crypto, para
 que el mismo código funcione en Node y en el runtime del proxy. La carga útil va
 firmada, no cifrada: solo lleva identificador, nombre y caducidad (8 horas).
 
-En producción `AUTH_SECRET` y `TEACHER_PASSWORD` son obligatorias. En desarrollo
-se usa un secreto conocido y la contraseña `acta-pro-demo`; el secreto de
-desarrollo es determinista a propósito, porque un valor aleatorio por proceso
-impide que el proxy verifique la cookie que acaba de firmar el server action.
+`AUTH_SECRET` es obligatoria en producción, y conviene definirla también en
+desarrollo: sin ella se usa un secreto que está escrito en el código fuente, y
+el repositorio es público, así que cualquiera puede fabricarse una sesión.
 
-> **Provisional.** Es una contraseña compartida, no un sistema de identidad.
-> Sustituir `verifyCredentials` en `src/lib/auth.ts` cuando exista el almacén de
-> usuarios.
+```bash
+openssl rand -base64 48   # y a AUTH_SECRET en .env.local
+```
+
+### Cuentas del claustro
+
+Cada docente tiene su propia contraseña, guardada como huella **PBKDF2-SHA256**
+con 210 000 iteraciones —lo que recomienda OWASP— y una sal por cuenta.
+
+```bash
+npm --prefix web run usuarios                                  # lista
+npm --prefix web run usuarios -- alta T-045 "Ana Pérez" correo # crea
+npm --prefix web run usuarios -- clave T-045                   # nueva contraseña
+```
+
+La contraseña la genera la máquina y **se imprime una sola vez**: no se guarda
+en claro en ningún sitio. Si se pierde, se genera otra. Es deliberado —una
+contraseña recuperable es una contraseña que alguien puede recuperar— y también
+lo es que no la elija una persona: las elegidas a mano acaban siendo el nombre
+del colegio y el año.
+
+> Se usa PBKDF2 y no scrypt o Argon2, que resistirían mejor un ataque con GPU,
+> por una razón concreta: Web Crypto no los tiene, y traerlos obligaría a una
+> biblioteca nativa que rompería `lib/auth.ts` en el runtime Edge del proxy. El
+> formato guarda sus parámetros, así que subir las iteraciones mañana no
+> invalida las contraseñas de hoy.
+
+### Cada docente ve sólo lo suyo
+
+No es una preferencia de la agenda: es una regla del servidor. `findForTeacher`
+devuelve la reunión **sólo si es de quien la pide**, y por ahí pasan las once
+rutas de `/api/reuniones/[id]/…`, las cinco pantallas del ciclo y la búsqueda
+del repositorio.
+
+Una reunión ajena responde **404 y no 403**: un 403 confirmaría que existe, que
+es justo lo que no hay que decirle a quien va probando identificadores en la
+barra de direcciones. Por el mismo motivo, un identificador de docente que no
+existe tarda lo mismo en fallar que uno real con la contraseña equivocada.
+
+> Antes bastaba con estar dentro. La agenda filtraba por docente, pero la agenda
+> es una pantalla: escribiendo el identificador de otra reunión en la URL se
+> llegaba a su transcripción, su acta y su PDF. Con familias reales eso es leer
+> el expediente de los estudiantes de otro compañero.
 
 ## Grabación y hablantes
 
@@ -561,6 +601,7 @@ Seis suites, ninguna necesita desplegar nada:
 | `verify:seal` | Que alterar cualquier cosa cambia la huella |
 | `verify:tsa` | Petición RFC 3161 byte a byte; con `-- --red`, contra la autoridad |
 | `verify:marks` | Que las marcas de la docente caen en la intervención correcta |
+| `verify:auth` | Contraseñas, sesión y que una cuenta inexistente tarde lo mismo |
 | `verify:supabase` | Configuración, esquema, escritura y concurrencia en la base alojada |
 | `verify:chain` | La cadena completa sobre una grabación real (necesita audio y claves) |
 
@@ -574,6 +615,5 @@ Seis suites, ninguna necesita desplegar nada:
   los de otra familia.
 - **Gmail sólo se confirma enviando.** `gmail.send` no da acceso de lectura a
   nada —esa es su gracia—, así que no hay comprobación inocua posible.
-- Almacén de usuarios: hoy es una contraseña compartida.
 - El esquema de respuesta de Runachay sigue sin conocerse; el mapeo está aislado
   en `mapStudent` y `mapRepresentative`.

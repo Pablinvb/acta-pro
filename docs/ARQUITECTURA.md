@@ -225,7 +225,8 @@ separado.
 | OpenAI (análisis y revisión) | Implementado, sin verificar contra la API real |
 | Runachay | Contrato implementado; esquema de respuesta aún desconocido |
 | Repositorio de actas con búsqueda | Funcionando |
-| Autenticación | Contraseña compartida provisional; falta almacén de usuarios |
+| Autenticación | Contraseña por docente (PBKDF2) · 24 comprobaciones |
+| Aislamiento entre docentes | Cada docente sólo alcanza sus reuniones |
 
 ## Hoja de ruta
 

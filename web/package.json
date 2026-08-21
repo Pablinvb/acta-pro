@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "verify:db": "node --conditions=react-server db/verify.mts",
     "verify:supabase": "node --conditions=react-server scripts/verify-supabase.mts",
+    "db:migrate": "node --conditions=react-server db/migrate.mts",
     "db:seed": "node --conditions=react-server scripts/seed.mts",
+    "usuarios": "node --conditions=react-server scripts/usuarios.mts",
     "verify:alignment": "node --conditions=react-server scripts/verify-alignment.mts",
     "verify:acta": "node --conditions=react-server scripts/verify-acta.mts",
     "verify:marks": "node --conditions=react-server scripts/verify-marks.mts",
@@ -22,7 +24,8 @@
     "google:url": "node --conditions=react-server scripts/google-oauth.mts url",
     "google:token": "node --conditions=react-server scripts/google-oauth.mts token",
     "google:check": "node --conditions=react-server scripts/google-oauth.mts check",
-    "google:folders": "node --conditions=react-server scripts/google-oauth.mts folders"
+    "google:folders": "node --conditions=react-server scripts/google-oauth.mts folders",
+    "verify:auth": "node --conditions=react-server scripts/verify-auth.mts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1111.0",

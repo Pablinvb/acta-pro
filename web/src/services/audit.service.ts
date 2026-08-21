@@ -15,7 +15,13 @@ import type { AuditLogEntry } from '@/lib/types';
  */
 
 export interface AuditEvent {
-  meetingId: string;
+  /**
+   * `null` para lo que no pertenece a ninguna reunión, como un intento de
+   * acceso. La columna tiene clave foránea contra `meetings`, así que un
+   * identificador de relleno como «-» la viola y el registro se pierde: se veía
+   * en los logs del servidor y en ningún sitio más.
+   */
+  meetingId: string | null;
   service: string;
   event: string;
   actor?: string;

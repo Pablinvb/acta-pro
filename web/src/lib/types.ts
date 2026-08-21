@@ -319,7 +319,12 @@ export interface AuditLogEntry {
   timestamp: string;
   workflow: string;
   node?: string;
-  meeting_id: string;
+  /**
+   * `null` para lo que no pertenece a ninguna reunión, como un intento de
+   * acceso fallido. La columna tiene clave foránea contra `meetings`, así que
+   * un identificador de relleno la viola y el registro se pierde.
+   */
+  meeting_id: string | null;
   event: string;
   actor?: string;
 }

@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { handle } from '@/app/api/_handler';
+import { handleMeeting } from '@/app/api/_handler';
 import { speech } from '@/services';
 
 /**
@@ -11,5 +11,6 @@ import { speech } from '@/services';
  */
 export async function GET(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  return handle(() => speech.listSegments(decodeURIComponent(id)));
+  const meetingId = decodeURIComponent(id);
+  return handleMeeting(meetingId, () => speech.listSegments(meetingId));
 }

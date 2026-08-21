@@ -2,8 +2,8 @@
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { sessionCookie, signSession, verifyCredentials } from '@/lib/auth';
-import { teachers } from '@/lib/mock/data';
+import { sessionCookie, signSession } from '@/lib/auth';
+import { teachers } from '@/services';
 
 export interface LoginState {
   error: string | null;
@@ -17,17 +17,17 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
     return { error: 'Escribe tu identificador docente y tu contraseña.' };
   }
 
-  const result = verifyCredentials({ teacherId, password }, teachers);
+  const result = await teachers.authenticate({ teacherId, password });
 
   if (!result.ok) {
-    if (result.reason === 'misconfigured') {
+    if (result.reason === 'sin_clave') {
       return {
         error:
-          'El servidor no tiene configurada la contraseña docente (TEACHER_PASSWORD). Avisa a quien administra el sistema.',
+          'Tu cuenta existe pero todavía no tiene contraseña asignada. Pídesela a quien administra el sistema.',
       };
     }
     // Mismo mensaje para identificador inexistente y contraseña incorrecta: no
-    // se revela cuáles de los dos falló.
+    // se revela cuál de los dos falló.
     return { error: 'Identificador o contraseña incorrectos.' };
   }
 

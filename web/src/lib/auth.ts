@@ -7,11 +7,14 @@
  * cookie; no cifra, así que la carga útil no lleva nada sensible: solo el
  * identificador de la docente, su nombre y la caducidad.
  *
- * Qué NO es esto todavía: no hay almacén de usuarios. Las credenciales salen de
- * variables de entorno porque los workflows 03/05/11/14 aún tienen la base de
- * datos como `NoOp`. Cuando exista, hay que sustituir `verifyCredentials` por
- * una consulta real (o delegar en Runachay / Google Workspace) — el resto de
- * este módulo no cambia.
+ * Cada docente tiene su propia contraseña, guardada como huella PBKDF2 en la
+ * tabla `teachers`. No queda ninguna contraseña compartida: el identificador de
+ * la sesión es lo que decide qué reuniones se pueden abrir, así que una
+ * credencial común equivaldría a que todo el claustro viera los expedientes de
+ * todos.
+ *
+ * Este módulo no importa nada a propósito: usa solo Web Crypto y globals, de
+ * modo que el mismo código funciona en Node y en el runtime Edge del proxy.
  */
 
 const COOKIE_NAME = 'acta_pro_session';
@@ -130,42 +133,114 @@ export async function verifySession(token: string | undefined): Promise<Session 
   }
 }
 
-/* ── Credenciales ─────────────────────────────────────────────────────────── */
+/* ── Contraseñas ──────────────────────────────────────────────────────────── */
 
-/** Contraseña de desarrollo. En producción `TEACHER_PASSWORD` es obligatoria. */
-const DEV_PASSWORD = 'acta-pro-demo';
+/**
+ * PBKDF2-SHA256 mediante Web Crypto.
+ *
+ * Se usa PBKDF2 y no scrypt o Argon2, que resistirían mejor un ataque con GPU,
+ * por una razón concreta: Web Crypto no los tiene, y traerlos obligaría a
+ * importar una biblioteca nativa que rompería este módulo en el runtime Edge
+ * donde corre el proxy. El número de iteraciones es el que recomienda OWASP
+ * para SHA-256, y el formato guarda sus parámetros, así que subirlo mañana no
+ * invalida las contraseñas de hoy.
+ */
+const PBKDF2_ITERATIONS = 210_000;
+const SALT_BYTES = 16;
+const KEY_BITS = 256;
+
+async function derive(password: string, salt: Uint8Array<ArrayBuffer>, iterations: number) {
+  const material = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits'],
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
+    material,
+    KEY_BITS,
+  );
+  return new Uint8Array(bits);
+}
+
+/** `pbkdf2$sha256$<iteraciones>$<sal>$<huella>`, todo en base64url. */
+export async function hashPassword(password: string): Promise<string> {
+  const salt = new Uint8Array(new ArrayBuffer(SALT_BYTES));
+  crypto.getRandomValues(salt);
+  const hash = await derive(password, salt, PBKDF2_ITERATIONS);
+  return `pbkdf2$sha256$${PBKDF2_ITERATIONS}$${b64url(salt)}$${b64url(hash)}`;
+}
+
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  const [algoritmo, digest, iteraciones, sal, huella] = stored.split('$');
+  if (algoritmo !== 'pbkdf2' || digest !== 'sha256') return false;
+
+  const n = Number(iteraciones);
+  if (!Number.isFinite(n) || n < 1000) return false;
+
+  try {
+    const calculada = await derive(password, fromB64url(sal), n);
+    return timingSafeEqual(b64url(calculada), huella);
+  } catch {
+    return false;
+  }
+}
+
+/* ── Credenciales ─────────────────────────────────────────────────────────── */
 
 export interface Credentials {
   teacherId: string;
   password: string;
 }
 
+/** Lo mínimo que hace falta para autenticar. */
+export interface TeacherAccount {
+  teacher_id: string;
+  name: string;
+  password_hash?: string;
+}
+
 export type VerifyResult =
   | { ok: true; session: Session }
-  | { ok: false; reason: 'invalid' | 'misconfigured' };
+  | { ok: false; reason: 'invalid' | 'sin_clave' };
 
-export function verifyCredentials(
+/**
+ * Comprueba las credenciales contra la contraseña guardada de esa docente.
+ *
+ * Ya no hay contraseña compartida. Antes `TEACHER_PASSWORD` valía para todo el
+ * claustro, de modo que quien entraba veía las reuniones de cualquiera; con
+ * familias reales eso significa que un docente lee el expediente de los
+ * estudiantes de otro.
+ *
+ * Cuando la cuenta no existe se compara igualmente contra una huella de
+ * relleno. Sin eso, un identificador inexistente respondería en un milisegundo
+ * y uno válido en doscientos, que es todo lo que hace falta para averiguar qué
+ * identificadores existen.
+ */
+const HUELLA_DE_RELLENO =
+  'pbkdf2$sha256$210000$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+
+export async function verifyCredentials(
   { teacherId, password }: Credentials,
-  knownTeachers: Array<{ teacher_id: string; name: string }>,
-): VerifyResult {
-  const expected = process.env.TEACHER_PASSWORD ?? (isProduction ? null : DEV_PASSWORD);
+  account: TeacherAccount | null,
+): Promise<VerifyResult> {
+  const ok = await verifyPassword(password, account?.password_hash ?? HUELLA_DE_RELLENO);
 
-  if (!expected) return { ok: false, reason: 'misconfigured' };
+  if (!account) return { ok: false, reason: 'invalid' };
+  if (!account.password_hash) return { ok: false, reason: 'sin_clave' };
+  if (!ok) return { ok: false, reason: 'invalid' };
 
-  const teacher = knownTeachers.find(
-    (t) => t.teacher_id.toLowerCase() === teacherId.trim().toLowerCase(),
-  );
-
-  // Se comprueba la contraseña aunque el identificador no exista, para que el
-  // tiempo de respuesta no revele qué identificadores son válidos.
-  const passwordOk = timingSafeEqual(password, expected);
-  if (!teacher || !passwordOk) return { ok: false, reason: 'invalid' };
+  // El identificador se normaliza aquí para que la sesión lleve siempre el que
+  // consta en la base, no el que la persona escribió.
+  void teacherId;
 
   return {
     ok: true,
     session: {
-      teacherId: teacher.teacher_id,
-      name: teacher.name,
+      teacherId: account.teacher_id,
+      name: account.name,
       exp: Math.floor(Date.now() / 1000) + SESSION_MAX_AGE_SECONDS,
     },
   };

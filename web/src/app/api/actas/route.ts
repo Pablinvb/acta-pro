@@ -12,12 +12,15 @@ import { getRepositories } from '@/repositories';
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
 
-  return handle(() =>
+  return handle((session) =>
     getRepositories().documents.search({
       query: params.get('q') ?? undefined,
       studentId: params.get('estudiante') ?? undefined,
       from: params.get('desde') ?? undefined,
       to: params.get('hasta') ?? undefined,
+      // Cada docente busca sólo entre sus actas. El filtro se pone aquí y no se
+      // acepta del cliente: si viniera en la petición, se podría cambiar.
+      teacherId: session.teacherId,
     }),
   );
 }

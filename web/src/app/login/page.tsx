@@ -9,12 +9,12 @@ export const metadata = { title: 'Acceso · ACTA PRO' };
 export default async function LoginPage() {
   if (await getSession()) redirect('/agenda');
 
-  // La pista solo aparece si nadie configuró una contraseña real: en cuanto
-  // exista TEACHER_PASSWORD, desaparece.
-  const demoHint =
-    process.env.NODE_ENV !== 'production' && !process.env.TEACHER_PASSWORD
-      ? 'Entorno de desarrollo · identificador T-045, contraseña acta-pro-demo'
-      : null;
+  /*
+   * Ya no hay pista de credenciales. Cada docente tiene su propia contraseña,
+   * que se genera con `npm run usuarios` y se entrega en mano: escribir unas
+   * credenciales en la pantalla de acceso las convierte en públicas.
+   */
+  const demoHint = null;
 
   return (
     <div className="grid min-h-dvh place-items-center bg-ground p-6">
@@ -48,8 +48,8 @@ export default async function LoginPage() {
         </div>
 
         <p className="mt-4 text-center text-xs leading-relaxed text-ink-3">
-          Esta aplicación trata datos personales de menores. No compartas tu sesión ni dejes el
-          dispositivo desbloqueado.
+          Esta aplicación trata datos personales de estudiantes y de sus familias. Tu sesión da
+          acceso a tus actas: no la compartas ni dejes el dispositivo desbloqueado.
         </p>
       </div>
     </div>

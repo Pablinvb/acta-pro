@@ -25,6 +25,7 @@ export * as signatures from './signature.service';
 export * as speaker from './speaker.service';
 export * as speech from './speech.service';
 export * as storage from './storage.service';
+export * as teachers from './teacher.service';
 export * as timestamp from './timestamp.service';
 export * as transcriptCleanup from './transcript-cleanup.service';
 

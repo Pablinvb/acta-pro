@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { handle } from '@/app/api/_handler';
+import { handleMeeting } from '@/app/api/_handler';
 import { lifecycle } from '@/services';
 
 /**
@@ -11,5 +11,6 @@ import { lifecycle } from '@/services';
  */
 export async function POST(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  return handle(() => lifecycle.closeMeetingAndDraft(decodeURIComponent(id)));
+  const meetingId = decodeURIComponent(id);
+  return handleMeeting(meetingId, () => lifecycle.closeMeetingAndDraft(meetingId));
 }

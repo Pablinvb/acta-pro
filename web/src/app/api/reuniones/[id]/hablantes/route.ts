@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { handle } from '@/app/api/_handler';
+import { handleMeeting } from '@/app/api/_handler';
 import { speaker } from '@/services';
 
 /**
@@ -14,25 +14,27 @@ import { speaker } from '@/services';
  */
 export async function GET(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  return handle(async () => ({
+  const meetingId = decodeURIComponent(id);
+  return handleMeeting(meetingId, async () => ({
     diarization: speaker.hasDiarization(),
-    voices: await speaker.voiceSamples(decodeURIComponent(id)),
+    voices: await speaker.voiceSamples(meetingId),
   }));
 }
 
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
+  const meetingId = decodeURIComponent(id);
   const body = (await request.json()) as {
     assignments?: Record<string, string>;
     timestamp?: string;
     speaker?: string;
   };
 
-  return handle(async (session) => {
+  return handleMeeting(meetingId, async (session) => {
     // Mapa completo de voces: el camino normal cuando hay separación de voces.
     if (body.assignments) {
       return speaker.assignVoices({
-        meetingId: decodeURIComponent(id),
+        meetingId: meetingId,
         assignments: body.assignments,
         teacherId: session.teacherId,
       });
@@ -41,7 +43,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     // Fragmento suelto: reserva para cuando el proveedor no separa voces.
     if (body.timestamp && body.speaker) {
       await speaker.confirm({
-        meetingId: decodeURIComponent(id),
+        meetingId: meetingId,
         timestamp: body.timestamp,
         speaker: body.speaker,
         teacherId: session.teacherId,

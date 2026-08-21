@@ -10,7 +10,7 @@ export const metadata = { title: 'Firmas · ACTA PRO' };
 export default async function FirmasPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await requireSession();
   const { id } = await params;
-  const meeting = await meetings.findOrNull(decodeURIComponent(id));
+  const meeting = await meetings.findForTeacher(decodeURIComponent(id), session.teacherId);
   if (!meeting) notFound();
 
   // El acta que se va a firmar, tal y como quedó guardada. Antes se enseñaba
