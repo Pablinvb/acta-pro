@@ -14,6 +14,7 @@
     "verify:acta": "node --conditions=react-server scripts/verify-acta.mts",
     "verify:marks": "node --conditions=react-server scripts/verify-marks.mts",
     "verify:seal": "node --conditions=react-server scripts/verify-seal.mts",
+    "verify:tsa": "node --conditions=react-server scripts/verify-tsa.mts",
     "verify:pyannote": "node --conditions=react-server scripts/verify-pyannote.mts",
     "verify:chain": "node --conditions=react-server scripts/verify-chain.mts",
     "google:url": "node --conditions=react-server scripts/google-oauth.mts url",

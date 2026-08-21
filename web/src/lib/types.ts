@@ -253,13 +253,36 @@ export interface Signature {
   signed_at: string | null;
   /**
    * Huella SHA-256 del acta en el momento de firmarla, incluidas las dos firmas
-   * y el instante. Es el sello de tiempo: va impresa en el PDF, de modo que
+   * y el instante. Es el sello de integridad: va impresa en el PDF, de modo que
    * cualquiera puede comprobar que el acta archivada es la que se firmó.
    *
    * Las dos firmas llevan la misma huella porque cubren el mismo acto: el acta
    * se firma entera o no se firma.
    */
   content_hash?: string;
+  /**
+   * Sello de tiempo de una autoridad independiente (RFC 3161).
+   *
+   * El `content_hash` demuestra integridad; esto demuestra **cuándo**, y lo
+   * atestigua un tercero en lugar del propio servidor del centro. Puede faltar:
+   * si la autoridad no responde, el acta se firma igual y queda constancia.
+   */
+  timestamp?: SignatureTimestamp;
+}
+
+export interface SignatureTimestamp {
+  /** Token RFC 3161 en DER, codificado en base64. Es la prueba. */
+  token: string;
+  /** Instante atestiguado por la autoridad, en ISO 8601. */
+  gen_time: string;
+  /** Número de serie del sello, en hexadecimal. */
+  serial_number: string;
+  /** Política de sellado aplicada, como OID. */
+  policy?: string;
+  /** Nombre de la autoridad, tal y como viene en el token. */
+  tsa_name?: string;
+  /** Servidor que lo emitió, para saber a quién preguntar al verificar. */
+  tsa_url?: string;
 }
 
 /* ── Seguimiento (WF 16) ──────────────────────────────────────────────────── */

@@ -135,6 +135,30 @@ export const defaultMeetingPlace = process.env.ACTA_PRO_LUGAR ?? '';
  */
 export const institutionTimeZone = process.env.ACTA_PRO_ZONA_HORARIA ?? 'America/Guayaquil';
 
+/* ── Sellado de tiempo RFC 3161 ───────────────────────────────────────────── */
+
+/**
+ * Autoridad de sellado de tiempo.
+ *
+ * El sello propio de ACTA PRO demuestra que el acta no se ha tocado desde que
+ * se firmó; éste demuestra **cuándo** se firmó, y lo dice un tercero. Es la
+ * diferencia entre «este documento es íntegro» y «este documento existía el 20
+ * de agosto», que es lo que hace falta si alguien sostiene que un acta se
+ * redactó después de los hechos.
+ *
+ * Por defecto va a FreeTSA, que es pública, gratuita y no pide cuenta: así el
+ * sellado funciona desde el primer día. **Para valor legal en Ecuador hay que
+ * apuntar esto a una entidad de certificación acreditada por la ARCOTEL**
+ * (Banco Central del Ecuador, Security Data, ANF). Se cambia sin tocar código.
+ *
+ * Vacío desactiva el sellado externo: el acta se firma igual, sólo con el sello
+ * propio.
+ */
+export const tsaUrl = process.env.ACTA_PRO_TSA_URL ?? 'https://freetsa.org/tsr';
+
+/** Política de sellado, si la autoridad publica varias y exige elegir una. */
+export const tsaPolicy = process.env.ACTA_PRO_TSA_POLITICA ?? '';
+
 /* ── Almacenamiento de objetos (S3 / Firebase / R2) ───────────────────────── */
 
 export const storageDriver: 'drive' | 's3' =

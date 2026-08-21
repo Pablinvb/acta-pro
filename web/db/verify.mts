@@ -227,12 +227,21 @@ check('volver a firmar sustituye, no acumula', (await repos.signatures.listByMee
  */
 const instante = '2026-08-20T21:22:11.263Z';
 const huella = 'a'.repeat(64);
+const selloTsa = {
+  token: Buffer.from('token de sellado de prueba').toString('base64'),
+  gen_time: '2026-08-20T21:22:12.000Z',
+  serial_number: '07207DD2',
+  policy: '1.2.3.4.1',
+  tsa_name: 'Free TSA',
+  tsa_url: 'https://freetsa.org/tsr',
+};
 await repos.signatures.save({
   meeting_id: 'ACTA-2026-0001',
   signer_role: 'teacher',
   signer_name: 'Ana Pérez',
   signed_at: instante,
   content_hash: huella,
+  timestamp: selloTsa,
   image: png,
 });
 const firmada = (await repos.signatures.listByMeeting('ACTA-2026-0001')).find(
@@ -240,6 +249,40 @@ const firmada = (await repos.signatures.listByMeeting('ACTA-2026-0001')).find(
 );
 check('el instante de firma vuelve tal cual se guardó', firmada?.signed_at === instante, firmada?.signed_at);
 check('el sello de integridad se conserva', firmada?.content_hash === huella, firmada?.content_hash);
+
+/*
+ * El token RFC 3161 es la prueba misma: si la base lo devolviera alterado, la
+ * verificación con `openssl ts -verify` fallaría y el acta perdería justo el
+ * respaldo por el que se selló.
+ */
+check('el token de sellado vuelve intacto', firmada?.timestamp?.token === selloTsa.token, firmada?.timestamp?.token);
+check(
+  'y con la fecha atestiguada por la autoridad',
+  firmada?.timestamp?.gen_time === selloTsa.gen_time,
+  firmada?.timestamp?.gen_time,
+);
+check(
+  'con su serie, política y autoridad',
+  firmada?.timestamp?.serial_number === selloTsa.serial_number &&
+    firmada?.timestamp?.policy === selloTsa.policy &&
+    firmada?.timestamp?.tsa_url === selloTsa.tsa_url,
+  JSON.stringify(firmada?.timestamp),
+);
+
+// Un acta sin sello externo debe distinguirse de una con sello: es información,
+// no un hueco. Se firma igual cuando la autoridad no responde.
+await repos.signatures.save({
+  meeting_id: 'ACTA-2026-0001',
+  signer_role: 'representative',
+  signer_name: 'María López',
+  signed_at: instante,
+  content_hash: huella,
+  image: png,
+});
+const sinSello = (await repos.signatures.listByMeeting('ACTA-2026-0001')).find(
+  (s) => s.signer_role === 'representative',
+);
+check('una firma sin sello externo se distingue de una con sello', sinSello?.timestamp === undefined);
 
 /* ── Repositorio ─────────────────────────────────────────────────────────── */
 

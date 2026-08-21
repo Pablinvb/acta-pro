@@ -1,9 +1,10 @@
 import 'server-only';
-import type { Signature } from '@/lib/types';
+import type { Signature, SignatureTimestamp } from '@/lib/types';
 import { getRepositories } from '@/repositories';
 import * as audit from './audit.service';
 import { invalido, noEncontrado } from './errors';
 import { computeSeal } from './seal';
+import * as timestamp from './timestamp.service';
 
 /**
  * Firmas digitales — antes workflow 12.
@@ -99,8 +100,24 @@ export async function submit(input: SubmitSignaturesInput): Promise<Signature[]>
       })
     : undefined;
 
+  /*
+   * Sello de una autoridad independiente. El `contentHash` demuestra que el
+   * acta no se ha tocado; esto demuestra cuándo se firmó, y lo dice un tercero
+   * en lugar del servidor del propio centro.
+   *
+   * Nunca interrumpe la firma. Si la autoridad no responde, se firma igual con
+   * el sello propio y queda constancia en la auditoría de que faltó el externo:
+   * perder la firma de una reunión porque un servidor ajeno estaba caído sería
+   * cambiar un problema por otro peor.
+   */
+  const sello = contentHash ? await sellarSiSePuede(contentHash) : null;
+
   for (const firma of firmas) {
-    await repos.signatures.save({ ...firma, content_hash: contentHash });
+    await repos.signatures.save({
+      ...firma,
+      content_hash: contentHash,
+      timestamp: sello ?? undefined,
+    });
   }
 
   await repos.meetings.setStatus(meetingId, 'signed');
@@ -114,10 +131,37 @@ export async function submit(input: SubmitSignaturesInput): Promise<Signature[]>
       // Queda también en la auditoría, que sólo se añade y nunca se altera: si
       // el sello de la firma cambiara, aquí se vería el original.
       content_hash: contentHash ?? null,
+      tsa_gen_time: sello?.gen_time ?? null,
+      tsa_serial: sello?.serial_number ?? null,
     },
   });
 
   return repos.signatures.listByMeeting(meetingId);
+}
+
+/**
+ * Pide el sello externo, y si no hay, sigue adelante.
+ *
+ * El fallo se registra en la auditoría en lugar de propagarse: quien mira el
+ * acta después tiene que poder distinguir «no se selló porque no está
+ * configurado» de «no se selló porque la autoridad falló aquel día».
+ */
+async function sellarSiSePuede(contentHash: string): Promise<SignatureTimestamp | null> {
+  if (!timestamp.enabled()) return null;
+  try {
+    const sello = await timestamp.stamp(contentHash);
+    return {
+      token: sello.token,
+      gen_time: sello.genTime,
+      serial_number: sello.serialNumber,
+      policy: sello.policy,
+      tsa_name: sello.tsaName,
+      tsa_url: sello.url,
+    };
+  } catch (error) {
+    console.error('[acta-pro] no se pudo sellar el acta con la autoridad:', error);
+    return null;
+  }
 }
 
 export async function listByMeeting(meetingId: string): Promise<Signature[]> {

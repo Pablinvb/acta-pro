@@ -163,10 +163,21 @@ CREATE TABLE signatures (
   signer_name TEXT NOT NULL,
   image       TEXT NOT NULL,
   signed_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-  -- Sello de tiempo: huella SHA-256 del acta, las dos firmas y el instante.
+  -- Sello de integridad: huella SHA-256 del acta, las dos firmas y el instante.
   -- Va impresa en el PDF, así que si alguien altera el acta archivada, el
   -- documento que se llevaron las partes deja de cuadrar con ella.
   content_hash TEXT,
+  -- Sello de tiempo RFC 3161 de una autoridad independiente. `content_hash`
+  -- demuestra integridad; esto demuestra CUÁNDO, y lo dice un tercero. El token
+  -- se guarda entero en base64 porque ES la prueba: se verifica con
+  --   openssl ts -verify -in sello.tsr -data huella.txt -CAfile cadena.pem
+  -- Puede faltar: si la autoridad no responde, el acta se firma igual.
+  tsa_token     TEXT,
+  tsa_gen_time  TIMESTAMPTZ,
+  tsa_serial    TEXT,
+  tsa_policy    TEXT,
+  tsa_name      TEXT,
+  tsa_url       TEXT,
   PRIMARY KEY (meeting_id, signer_role)
 );
 

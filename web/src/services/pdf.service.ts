@@ -1,6 +1,12 @@
 import 'server-only';
 import PDFDocument from 'pdfkit';
-import type { Meeting, MeetingMinutes, Participant, Signature } from '@/lib/types';
+import type {
+  Meeting,
+  MeetingMinutes,
+  Participant,
+  Signature,
+  SignatureTimestamp,
+} from '@/lib/types';
 import { getRepositories } from '@/repositories';
 import { defaultMeetingPlace, institutionName, institutionTimeZone } from './config';
 import { formatSeal, formatSignedAt } from './seal';
@@ -360,30 +366,54 @@ function asistencia(
  * el registro. Y se dice qué demuestra y qué no: un docente que crea tener más
  * respaldo del que tiene está peor protegido que uno que sabe cuál es.
  */
-function sello(doc: PDFKit.PDFDocument, hash: string): void {
+function sello(doc: PDFKit.PDFDocument, hash: string, tsa?: SignatureTimestamp): void {
   const usable = doc.page.width - MARGIN * 2;
-  if (doc.y + 70 > doc.page.height - MARGIN) doc.addPage();
+  if (doc.y + (tsa ? 100 : 70) > doc.page.height - MARGIN) doc.addPage();
   doc.moveDown(0.8);
 
-  table(doc, [usable], [
-    [{ text: 'SELLO DE INTEGRIDAD', bold: true, fill: HEAD_BG, align: 'center', size: 8 }],
+  const filas: Row[] = [
+    [{ text: 'SELLO DE INTEGRIDAD Y TIEMPO', bold: true, fill: HEAD_BG, align: 'center', size: 8 }],
     [{ text: formatSeal(hash), align: 'center', size: 8.5 }],
-  ], { minHeight: 16 });
+  ];
+
+  if (tsa) {
+    const quien = tsa.tsa_name ?? tsa.tsa_url ?? 'autoridad de sellado';
+    filas.push([
+      {
+        text:
+          `Sellado por ${quien} el ${formatSignedAt(tsa.gen_time, institutionTimeZone)} ` +
+          `· serie ${tsa.serial_number}`,
+        align: 'center',
+        size: 7.5,
+      },
+    ]);
+  }
+
+  table(doc, [usable], filas, { minHeight: 16 });
+
+  /*
+   * Se dice exactamente qué respalda el documento. Con sello externo la fecha
+   * la atestigua un tercero; sin él, sólo el servidor del centro. Un docente
+   * que crea tener más respaldo del que tiene está peor protegido que uno que
+   * sabe cuál es, así que la diferencia va impresa.
+   */
+  const explicacion = tsa
+    ? 'Huella SHA-256 del contenido de esta acta y de sus firmas en el momento de firmarla. ' +
+      'Cualquier cambio posterior produciría una huella distinta. La fecha está atestiguada por ' +
+      'una autoridad de sellado independiente conforme a la norma RFC 3161, no por el propio ' +
+      'centro. El token de sellado se conserva junto al acta y permite comprobar ambas cosas ' +
+      'ante un tercero.'
+    : 'Huella SHA-256 del contenido de esta acta y de sus firmas en el momento de firmarla. ' +
+      'Permite comprobar que el documento archivado es exactamente el que se firmó: cualquier ' +
+      'cambio posterior produciría una huella distinta. La fecha la registra ACTA PRO y no una ' +
+      'autoridad de sellado independiente.';
 
   doc.moveDown(0.4);
   doc
     .font('Helvetica')
     .fontSize(7)
     .fillColor(MUTED)
-    .text(
-      'Huella SHA-256 del contenido de esta acta y de sus firmas en el momento de firmarla. ' +
-        'Permite comprobar que el documento archivado es exactamente el que se firmó: cualquier ' +
-        'cambio posterior produciría una huella distinta. La fecha la registra ACTA PRO y no una ' +
-        'autoridad de sellado independiente.',
-      MARGIN,
-      doc.y,
-      { width: usable, align: 'justify' },
-    );
+    .text(explicacion, MARGIN, doc.y, { width: usable, align: 'justify' });
 }
 
 export function renderPdf({
@@ -465,7 +495,7 @@ export function renderPdf({
     asistencia(doc, meeting.participants, signatures, meeting);
 
     const huella = signatures.find((s) => s.content_hash)?.content_hash;
-    if (huella) sello(doc, huella);
+    if (huella) sello(doc, huella, signatures.find((s) => s.timestamp)?.timestamp);
 
     /*
      * Pie con el código en cada página. El «Nº» del encabezado es el número de

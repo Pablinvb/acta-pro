@@ -439,7 +439,9 @@ export function createPostgresRepositories(resolve: () => Promise<Db>): Reposito
       async listByMeeting(meetingId) {
         const { rows } = await (await db()).query<Record<string, unknown>>(
           `SELECT meeting_id, signer_role, signer_name, image, content_hash,
-                  to_char(signed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS signed_at
+                  tsa_token, tsa_serial, tsa_policy, tsa_name, tsa_url,
+                  to_char(signed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS signed_at,
+                  to_char(tsa_gen_time AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS tsa_gen_time
            FROM signatures WHERE meeting_id = $1`,
           [meetingId],
         );
@@ -449,6 +451,18 @@ export function createPostgresRepositories(resolve: () => Promise<Db>): Reposito
           signer_name: r.signer_name as string,
           signed_at: r.signed_at as string,
           content_hash: (r.content_hash as string | null) ?? undefined,
+          // El sello externo puede faltar, y su ausencia es información: sin
+          // token no hay fecha atestiguada por un tercero.
+          timestamp: r.tsa_token
+            ? {
+                token: r.tsa_token as string,
+                gen_time: r.tsa_gen_time as string,
+                serial_number: r.tsa_serial as string,
+                policy: (r.tsa_policy as string | null) ?? undefined,
+                tsa_name: (r.tsa_name as string | null) ?? undefined,
+                tsa_url: (r.tsa_url as string | null) ?? undefined,
+              }
+            : undefined,
           image: r.image as string,
         })) as Signature[];
       },
@@ -464,13 +478,22 @@ export function createPostgresRepositories(resolve: () => Promise<Db>): Reposito
            * huella nunca habría cuadrado. Un sello que no verifica es peor que
            * no tener sello: promete algo que no cumple.
            */
-          `INSERT INTO signatures (meeting_id, signer_role, signer_name, image, signed_at, content_hash)
-           VALUES ($1, $2, $3, $4, COALESCE($5::timestamptz, now()), $6)
+          `INSERT INTO signatures (meeting_id, signer_role, signer_name, image, signed_at,
+                                   content_hash, tsa_token, tsa_gen_time, tsa_serial,
+                                   tsa_policy, tsa_name, tsa_url)
+           VALUES ($1, $2, $3, $4, COALESCE($5::timestamptz, now()),
+                   $6, $7, $8::timestamptz, $9, $10, $11, $12)
            ON CONFLICT (meeting_id, signer_role) DO UPDATE SET
              signer_name  = EXCLUDED.signer_name,
              image        = EXCLUDED.image,
              signed_at    = EXCLUDED.signed_at,
-             content_hash = EXCLUDED.content_hash`,
+             content_hash = EXCLUDED.content_hash,
+             tsa_token    = EXCLUDED.tsa_token,
+             tsa_gen_time = EXCLUDED.tsa_gen_time,
+             tsa_serial   = EXCLUDED.tsa_serial,
+             tsa_policy   = EXCLUDED.tsa_policy,
+             tsa_name     = EXCLUDED.tsa_name,
+             tsa_url      = EXCLUDED.tsa_url`,
           [
             signature.meeting_id,
             signature.signer_role,
@@ -478,6 +501,12 @@ export function createPostgresRepositories(resolve: () => Promise<Db>): Reposito
             signature.image,
             signature.signed_at,
             signature.content_hash ?? null,
+            signature.timestamp?.token ?? null,
+            signature.timestamp?.gen_time ?? null,
+            signature.timestamp?.serial_number ?? null,
+            signature.timestamp?.policy ?? null,
+            signature.timestamp?.tsa_name ?? null,
+            signature.timestamp?.tsa_url ?? null,
           ],
         );
       },
