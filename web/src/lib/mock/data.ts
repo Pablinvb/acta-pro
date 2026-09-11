@@ -29,6 +29,23 @@ export const teacher: Teacher = {
 };
 
 /**
+ * Contraseña de la cuenta de demostración: `acta-pro-demo`.
+ *
+ * Es la huella PBKDF2 de una contraseña conocida y escrita en un repositorio
+ * público, así que **sólo se aplica fuera de producción**. Sin esto, clonar el
+ * proyecto y ejecutar `npm run dev` dejaba una pantalla de acceso por la que no
+ * se puede pasar: crear cuentas necesita base de datos, y el modo de
+ * demostración existe precisamente para no necesitarla.
+ *
+ * En cuanto hay PostgreSQL, las cuentas se crean con `npm run usuarios` y esto
+ * deja de intervenir.
+ */
+export const DEMO_PASSWORD_HASH =
+  process.env.NODE_ENV === 'production'
+    ? undefined
+    : 'pbkdf2$sha256$210000$xhCSLRxqHwgCvJPe5SAN9g$OxTcJer78MxjvlPQZCiPlU7M2cbyJeIyt7FLRsL4xd8';
+
+/**
  * Docentes que pueden acceder. Hoy es una lista fija porque todavía no hay
  * almacén de usuarios; sustituir por una consulta real cuando exista.
  */

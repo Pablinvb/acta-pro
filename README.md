@@ -27,8 +27,13 @@ conserve fragmentos no recomendados sin resolver.
 cuándo»; pyannote responde «quién habló y cuándo». Un motor de alineación cruza
 ambas palabra a palabra, de modo que una frase que mezcla a dos personas se
 parte donde cambia el turno. Medido con una grabación real: 13 intervenciones,
-0,92 de confianza media. Lo que el sistema no sabe con certeza lo marca para que
-lo revise la docente, en lugar de adivinar.
+0,92 de confianza media.
+
+Y quién es cada voz lo **propone** un modelo leyendo lo que cada persona dice de
+sí misma —«mi hijo», «en mi clase»—, siempre **con la frase que lo justifica** y
+siempre para que la docente lo confirme. Una propuesta cuya cita no aparezca
+literalmente en la transcripción se descarta: el modelo puede equivocarse de
+papel, pero no puede citar algo que nadie dijo.
 
 **3 · El acta prueba cuándo se firmó.** Al firmar se calcula una huella SHA-256
 del acta, las dos firmas y el instante, y se envía a una **autoridad de sellado
@@ -46,17 +51,19 @@ npm --prefix web install
 npm --prefix web run dev
 ```
 
-Arranca en **modo demostración**: el ciclo completo funciona con datos
-ficticios, sin Google, sin OpenAI y sin Runachay.
+Arranca en **modo demostración** con la cuenta `T-045` y la contraseña
+`acta-pro-demo`: el ciclo completo funciona con datos ficticios, sin Google, sin
+OpenAI y sin Runachay.
 
-Para entrar hace falta una cuenta. Se crea con:
+Esa cuenta **sólo existe fuera de producción**. Con una base de datos detrás no
+hay contraseña compartida: se crea una cuenta por docente.
 
 ```bash
 npm --prefix web run usuarios -- alta T-045 "Ana Pérez" correo@colegio.edu.ec
 ```
 
-La contraseña se genera y se imprime una sola vez. No hay contraseña compartida:
-cada docente entra con la suya y **sólo alcanza sus propias reuniones**.
+La contraseña se genera y se imprime una sola vez. Cada docente entra con la
+suya y **sólo alcanza sus propias reuniones**.
 
 ## Estructura
 
@@ -108,7 +115,7 @@ y afirmarlo en un documento que las dos partes firman sería inventar un hecho.
 
 ## Verificación
 
-Seis suites, todas ejecutables sin desplegar nada:
+Nueve suites, todas ejecutables sin desplegar nada:
 
 ```bash
 npm --prefix web run verify:db          # 41 · esquema y adaptador contra PostgreSQL real
@@ -118,6 +125,7 @@ npm --prefix web run verify:seal        # 18 · sello de integridad
 npm --prefix web run verify:tsa -- --red# 20 · sellado RFC 3161, contra la autoridad real
 npm --prefix web run verify:marks       # 16 · marcas de la docente
 npm --prefix web run verify:auth        # 24 · contraseñas y sesión
+npm --prefix web run verify:voces       # 22 · qué propuestas de rol se rechazan
 npm --prefix web run verify:supabase    # 12 · la base alojada, si la hay
 ```
 

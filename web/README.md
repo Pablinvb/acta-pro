@@ -48,6 +48,7 @@ fallos del original que se corrigieron al portarlo están en
 | `speech` | Transcripción de los fragmentos de audio |
 | `transcript-cleanup` | Depura el habla transcrita, conservando el original |
 | `speaker` | Confirmación de hablantes |
+| `voice-roles` | Propone qué papel tiene cada voz; la docente confirma |
 | `meeting-ai` | Análisis de la transcripción |
 | `language-review` | Clasificación GREEN / YELLOW / RED |
 | `history` | Qué quedó de las reuniones anteriores del estudiante |
@@ -74,6 +75,7 @@ página HTML.
 | `POST /api/reuniones/[id]/iniciar` | Marca la reunión en curso |
 | `POST /api/reuniones/[id]/audio` | Recibe y transcribe un fragmento |
 | `POST /api/reuniones/[id]/hablantes` | Confirma quién habló |
+| `GET /api/reuniones/[id]/hablantes/sugerencias` | Qué papel propone el modelo para cada voz |
 | `POST /api/reuniones/[id]/cerrar` | Análisis → acta → revisión de lenguaje |
 | `GET · POST /api/reuniones/[id]/revision` | Hallazgos y decisión de la docente |
 | `GET · POST /api/reuniones/[id]/firmas` | Firmas y toda la cadena posterior |
@@ -276,10 +278,41 @@ botones. Un toque por voz.
 En los datos de demostración, tres decisiones atribuyen ocho intervenciones.
 
 Solo se aceptan personas que constan como participantes de la reunión: así no
-puede aparecer en un acta alguien que no estuvo. Es lo máximo que la tecnología
-da hoy con garantías suficientes para un documento que alguien va a firmar, y
-atribuir una frase a la persona equivocada es exactamente el error que ACTA PRO
-existe para evitar.
+puede aparecer en un acta alguien que no estuvo.
+
+### El modelo propone, la docente confirma
+
+La separación de voces no sabe quién es quién —nunca ha oído a esas personas—,
+pero **la conversación sí lo dice**: quien habla de «mi hijo» es la familia,
+quien dice «en mi clase» es la docente. Eso se puede leer, y `voice-roles` lo
+lee: propone un papel por voz y lo enseña **con la frase que lo justifica**.
+
+La docente pasa de elegir desde cero a confirmar o corregir. La pantalla
+distingue las dos cosas: **azul** es lo que propuso el modelo y sigue pendiente
+de confirmar, **verde** es lo que has decidido tú.
+
+Todas las reglas se aplican **en código**, no se le confían al modelo. Un prompt
+es una petición; esto es una garantía. Se descarta una propuesta si:
+
+- el modelo no se fía del todo —sólo se aceptan las de confianza alta—;
+- **la frase que cita no está literalmente en la transcripción**. Es la
+  comprobación que impide que una justificación inventada pase por prueba: el
+  modelo puede equivocarse de papel, pero no puede citar algo que nadie dijo;
+- el papel lo pueden ocupar dos personas de esa reunión —madre *y* padre
+  presentes— y la propuesta no dice cuál;
+- dos voces reclaman el mismo papel habiendo una sola persona en él;
+- la persona no consta como participante, o consta como ausente.
+
+Medido contra el modelo real: en una reunión donde cada parte habla de lo suyo,
+propone las tres voces correctamente. En una donde nadie dice quién es —sólo se
+habla del tiempo y de fijar una fecha— se declara en confianza baja y **no
+propone ninguna**, que es exactamente lo que tiene que hacer.
+
+> **La confirmación no es un trámite.** El acta atribuye afirmaciones a personas
+> con nombre y apellido, en un documento que las dos partes firman. Atribuir una
+> frase a quien no la dijo es el error que ACTA PRO existe para evitar, y
+> ahorrar dos toques no lo compensa. Si el modelo falla o tarda, la pantalla
+> funciona como siempre.
 
 ## Repositorio
 
@@ -602,6 +635,7 @@ Seis suites, ninguna necesita desplegar nada:
 | `verify:tsa` | Petición RFC 3161 byte a byte; con `-- --red`, contra la autoridad |
 | `verify:marks` | Que las marcas de la docente caen en la intervención correcta |
 | `verify:auth` | Contraseñas, sesión y que una cuenta inexistente tarde lo mismo |
+| `verify:voces` | Qué propuestas de rol se aceptan y, sobre todo, cuáles no |
 | `verify:supabase` | Configuración, esquema, escritura y concurrencia en la base alojada |
 | `verify:chain` | La cadena completa sobre una grabación real (necesita audio y claves) |
 

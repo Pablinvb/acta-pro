@@ -61,6 +61,7 @@ Cada servicio vive en `web/src/services/` y es responsable de un dominio.
 | `speech` | Transcribe los fragmentos de audio durante la reunión |
 | `transcript-cleanup` | Depura el habla transcrita conservando el original |
 | `speaker` | Identifica qué persona es cada voz detectada |
+| `voice-roles` | Propone el papel de cada voz con la frase que lo justifica |
 | `meeting-ai` | Analiza la transcripción y devuelve JSON estructurado |
 | `language-review` | Clasifica la redacción como GREEN / YELLOW / RED y sugiere alternativas |
 | `acta-generator` | Construye el acta con sus 13 secciones |
@@ -217,7 +218,7 @@ separado.
 | Transcripción (Whisper) | Verificado con una grabación real |
 | Separación de voces (pyannote) | Verificado: 40 turnos, 2 voces, 0,92 de confianza |
 | Alineación quién dijo qué | Funcionando · 20 comprobaciones |
-| Identificación de quién es cada voz | Funcionando: la docente decide una vez por voz |
+| Identificación de quién es cada voz | El modelo propone con evidencia; la docente confirma · 22 comprobaciones |
 | Acta con el formato del centro | Funcionando · 43 comprobaciones |
 | Historial del estudiante | Funcionando: antecedentes heredados con su procedencia |
 | Sello de integridad (SHA-256) | Funcionando · 18 comprobaciones |

@@ -50,7 +50,14 @@ const globalStore = globalThis as unknown as { __actaProStore?: Store };
 
 function createStore(): Store {
   return {
-    teachers: new Map(seed.teachers.map((t) => [t.teacher_id, structuredClone(t)])),
+    // La contraseña de demostración sólo existe fuera de producción; ver
+    // `DEMO_PASSWORD_HASH`. Sin ella no habría forma de entrar sin base de datos.
+    teachers: new Map(
+      seed.teachers.map((t) => [
+        t.teacher_id,
+        { ...structuredClone(t), password_hash: seed.DEMO_PASSWORD_HASH },
+      ]),
+    ),
     meetings: new Map(
       [...seed.meetings, ...seed.previousMeetings].map((m) => [
         m.meeting_id,

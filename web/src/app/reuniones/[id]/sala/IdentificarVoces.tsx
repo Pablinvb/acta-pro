@@ -26,6 +26,27 @@ interface VoiceSample {
   assignedTo?: string;
 }
 
+/** Lo que propone el modelo para una voz, con su justificación. */
+interface Suggestion {
+  speaker_tag: string;
+  name: string;
+  role: 'docente' | 'representante' | 'estudiante' | 'desconocido';
+  /** Frase literal de la transcripción en la que se apoya. */
+  evidence: string;
+}
+
+/**
+ * Cómo se lee cada rol dentro de «Parece …». En minúscula porque va en mitad
+ * de una frase, y aquí y no en `roleLabel` porque estos son los roles que usa
+ * el modelo, no los de los participantes.
+ */
+const ROL_PROPUESTO: Record<Suggestion['role'], string> = {
+  docente: 'la docente',
+  representante: 'el representante',
+  estudiante: 'el estudiante',
+  desconocido: 'sin determinar',
+};
+
 export function IdentificarVoces({
   meetingId,
   participants,
@@ -40,6 +61,18 @@ export function IdentificarVoces({
   const [diarization, setDiarization] = useState(true);
   const [assignments, setAssignments] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+
+  /**
+   * Lo que propone el modelo, con la frase que lo justifica.
+   *
+   * Se guarda aparte de `assignments` para poder distinguir «esto lo sugirió la
+   * máquina» de «esto lo decidí yo». En un documento que se firma, esa
+   * diferencia importa: la docente tiene que ver qué está confirmando y qué
+   * está eligiendo.
+   */
+  const [suggestions, setSuggestions] = useState<Record<string, Suggestion>>({});
+  const [touched, setTouched] = useState<Set<string>>(new Set());
+  const [suggesting, setSuggesting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,9 +99,54 @@ export function IdentificarVoces({
     };
   }, [meetingId]);
 
+  /*
+   * Las sugerencias se piden aparte: la llamada al modelo tarda unos segundos y
+   * la pantalla tiene que poder usarse desde el primer momento. Llegan encima
+   * de algo que ya funciona, y si no llegan no se pierde nada.
+   */
+  useEffect(() => {
+    if (voices === null || voices.length === 0) return;
+    let cancelled = false;
+    setSuggesting(true);
+
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/reuniones/${encodeURIComponent(meetingId)}/hablantes/sugerencias`,
+        );
+        if (!res.ok) return;
+        const propuestas: Suggestion[] = await res.json();
+        if (cancelled || propuestas.length === 0) return;
+
+        setSuggestions(Object.fromEntries(propuestas.map((s) => [s.speaker_tag, s])));
+        // Se rellena sólo lo que la docente no haya decidido ya.
+        setAssignments((previo) => {
+          const siguiente = { ...previo };
+          for (const s of propuestas) {
+            if (!siguiente[s.speaker_tag]) siguiente[s.speaker_tag] = s.name;
+          }
+          return siguiente;
+        });
+      } catch {
+        /* Sin sugerencias se identifica a mano, como siempre. */
+      } finally {
+        if (!cancelled) setSuggesting(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [meetingId, voices]);
+
   const assignedCount = Object.values(assignments).filter(Boolean).length;
   const total = voices?.length ?? 0;
   const allAssigned = total > 0 && assignedCount === total;
+
+  /** Propuestas que la docente todavía no ha mirado ni corregido. */
+  const sinConfirmar = Object.values(suggestions).filter(
+    (s) => !touched.has(s.speaker_tag) && assignments[s.speaker_tag] === s.name,
+  ).length;
 
   /** Una misma persona no puede ser dos voces distintas. */
   const takenBy = useCallback(
@@ -151,25 +229,39 @@ export function IdentificarVoces({
           )
         }
       >
-        <p className="mb-4 text-[13px] text-ink-3">
+        <p className="mb-4 text-[13px] leading-relaxed text-ink-3">
           La transcripción separó {total} voz/voces, pero no sabe a quién pertenece cada una. Dilo
           una vez y todas sus intervenciones quedarán atribuidas.
+          {suggesting && ' Buscando pistas en la conversación…'}
         </p>
 
         <ul className="stagger flex list-none flex-col gap-3">
           {voices.map((voice) => {
             const value = assignments[voice.speaker_tag] ?? '';
+            const sugerida = suggestions[voice.speaker_tag];
+            /* Sin tocar y coincidiendo con la propuesta: sigue siendo sugerencia. */
+            const soloSugerido =
+              !!sugerida && !touched.has(voice.speaker_tag) && value === sugerida.name;
+
             return (
               <li
                 key={voice.speaker_tag}
                 className={`rounded-[10px] border p-3.5 transition-colors ${
-                  value ? 'border-ok-border bg-ok-soft/30' : 'border-line bg-surface-2'
+                  soloSugerido
+                    ? 'border-accent-border bg-accent-soft/30'
+                    : value
+                      ? 'border-ok-border bg-ok-soft/30'
+                      : 'border-line bg-surface-2'
                 }`}
               >
                 <div className="mb-2 flex items-center gap-2.5">
                   <span
                     className={`grid size-8 shrink-0 place-items-center rounded-lg text-sm font-bold ${
-                      value ? 'bg-ok text-white' : 'bg-accent text-accent-on'
+                      soloSugerido
+                        ? 'bg-accent text-accent-on'
+                        : value
+                          ? 'bg-ok text-white'
+                          : 'bg-accent text-accent-on'
                     }`}
                   >
                     {voice.speaker_tag}
@@ -181,12 +273,28 @@ export function IdentificarVoces({
                       <span className="tabular font-data">{voice.firstHeard.slice(11, 19)}</span>
                     </p>
                   </div>
+                  {soloSugerido && <Pill tone="accent">Sugerido · confirma</Pill>}
                 </div>
 
                 {/* La intervención más larga: es la que permite reconocer la voz. */}
                 <blockquote className="mb-3 border-l-2 border-line-strong pl-3 font-doc text-[14px] leading-relaxed text-ink-2">
                   «{voice.text}»
                 </blockquote>
+
+                {/*
+                  La frase en la que se apoya la propuesta. Va delante porque una
+                  sugerencia sin motivo sólo se puede aceptar a ciegas, y aquí de
+                  lo que se trata es de que la docente pueda discrepar con
+                  criterio.
+                */}
+                {soloSugerido && (
+                  <p className="mb-3 rounded-lg border border-accent-border bg-accent-soft px-3 py-2 text-[12px] leading-relaxed text-ink-2">
+                    <span className="font-semibold text-accent-text">
+                      Parece {ROL_PROPUESTO[sugerida.role]}
+                    </span>{' '}
+                    porque dijo: «{sugerida.evidence}»
+                  </p>
+                )}
 
                 <div className="flex flex-wrap gap-2">
                   {participants.map((p) => {
@@ -197,16 +305,32 @@ export function IdentificarVoces({
                         key={p.name}
                         type="button"
                         disabled={taken || saving}
-                        onClick={() =>
+                        onClick={() => {
+                          /*
+                           * Tocar el nombre que el modelo proponía es confirmarlo,
+                           * no quitarlo. Es el gesto natural para decir «sí, es
+                           * ella», y antes lo borraba: la docente tocaba para
+                           * estar de acuerdo y veía desaparecer la asignación.
+                           *
+                           * Deseleccionar sigue siendo posible tocándolo otra vez,
+                           * ya confirmado.
+                           */
+                          const confirmandoSugerencia = selected && soloSugerido;
+                          setTouched((t) => new Set(t).add(voice.speaker_tag));
                           setAssignments((a) => ({
                             ...a,
-                            [voice.speaker_tag]: selected ? '' : p.name,
-                          }))
-                        }
+                            [voice.speaker_tag]:
+                              selected && !confirmandoSugerencia ? '' : p.name,
+                          }));
+                        }}
+                        /* Verde = lo has decidido tú. Azul = lo propuso el
+                           modelo y sigue pendiente de que lo confirmes. */
                         className={`min-h-[44px] rounded-[10px] border px-3.5 text-[13px] font-medium transition disabled:cursor-not-allowed disabled:opacity-35 ${
-                          selected
-                            ? 'border-ok bg-ok text-white'
-                            : 'border-line-strong bg-surface text-ink hover:bg-surface-2'
+                          selected && soloSugerido
+                            ? 'border-accent bg-accent text-accent-on'
+                            : selected
+                              ? 'border-ok bg-ok text-white'
+                              : 'border-line-strong bg-surface text-ink hover:bg-surface-2'
                         }`}
                       >
                         {selected && <span aria-hidden>✓ </span>}
@@ -231,6 +355,19 @@ export function IdentificarVoces({
         </Banner>
       )}
 
+      {sinConfirmar > 0 && (
+        <Banner
+          tone="accent"
+          title={`${sinConfirmar} de ${total} las propuso el modelo`}
+        >
+          <p className="mt-0.5">
+            Léelas antes de continuar. Las deduce de lo que cada persona dice de sí misma, y
+            acierta casi siempre — pero el acta atribuye estas frases con nombre y apellido, y eso
+            lo firmas tú.
+          </p>
+        </Banner>
+      )}
+
       <div className="flex gap-2">
         <Button className="flex-1" onClick={() => save(true)} disabled={saving}>
           Omitir por ahora
@@ -241,12 +378,16 @@ export function IdentificarVoces({
           onClick={() => save(false)}
           disabled={saving || assignedCount === 0}
         >
-          {saving ? 'Guardando…' : 'Confirmar y repasar'}
+          {saving
+            ? 'Guardando…'
+            : sinConfirmar > 0
+              ? 'Confirmo y repaso'
+              : 'Confirmar y repasar'}
         </Button>
       </div>
 
       <p className="text-center">
-        <WfTag>LA TRANSCRIPCIÓN SEPARA VOCES · LOS NOMBRES LOS PONE LA DOCENTE</WfTag>
+        <WfTag>EL MODELO PROPONE · LA DOCENTE CONFIRMA</WfTag>
       </p>
     </div>
   );
